@@ -1,0 +1,71 @@
+<div class="modify-page">
+  <button mat-button class="back-btn" routerLink="/security-group">
+    <mat-icon>arrow_back</mat-icon>
+    Back to Security Groups
+  </button>
+
+  <div class="page-card animate-fade-in-up">
+    <div class="card-header">
+      <div class="header-icon" [class.modify]="!isCloneMode" [class.clone]="isCloneMode">
+        <mat-icon>{{ isCloneMode ? 'content_copy' : 'edit_note' }}</mat-icon>
+      </div>
+      <h1>{{ isCloneMode ? 'Clone Existing Security Group' : 'Modify Existing Security Group' }}</h1>
+      <p>{{ isCloneMode ? 'Select a security group to clone its configuration into a new group' : 'Select a security group to modify its permission configuration' }}</p>
+    </div>
+
+    <!-- Search bar -->
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search groups</mat-label>
+      <mat-icon matPrefix>search</mat-icon>
+      <input matInput [(ngModel)]="searchQuery" (input)="onSearch()" placeholder="Filter by group name...">
+      <button *ngIf="searchQuery" mat-icon-button matSuffix (click)="searchQuery = ''; onSearch()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </mat-form-field>
+
+    <!-- Loading state -->
+    <div *ngIf="isLoading" class="loading-state">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Loading security groups...</p>
+    </div>
+
+    <!-- Empty state -->
+    <div *ngIf="!isLoading && filteredGroups.length === 0" class="empty-state">
+      <mat-icon>folder_open</mat-icon>
+      <p *ngIf="groups.length === 0">No security groups found. Create one first.</p>
+      <p *ngIf="groups.length > 0">No groups match your search.</p>
+    </div>
+
+    <!-- Groups list -->
+    <div *ngIf="!isLoading && filteredGroups.length > 0" class="groups-list">
+      <div
+        *ngFor="let group of filteredGroups"
+        class="group-item"
+        [class.selected]="selectedGuid === group.securityGroupGuid"
+        (click)="selectGroup(group)"
+      >
+        <mat-icon class="group-icon">security</mat-icon>
+        <div class="group-info">
+          <span class="group-name">{{ group.groupName }}</span>
+          <span class="group-guid">{{ group.securityGroupGuid }}</span>
+        </div>
+        <mat-icon *ngIf="selectedGuid === group.securityGroupGuid" class="check-icon">check_circle</mat-icon>
+      </div>
+    </div>
+
+    <!-- Action -->
+    <div class="form-actions" *ngIf="!isLoading">
+      <div *ngIf="isCloneMode && selectedGuid" class="clone-name-input">
+        <mat-form-field appearance="outline">
+          <mat-label>New Security Group Name</mat-label>
+          <input matInput [(ngModel)]="newCloneName" placeholder="Enter new name...">
+        </mat-form-field>
+      </div>
+      <button mat-button routerLink="/security-group" class="cancel-btn">Cancel</button>
+      <button mat-raised-button color="primary" [disabled]="!selectedGuid || (isCloneMode && !newCloneName)" (click)="proceedToConfig()" class="submit-btn">
+        <mat-icon>{{ isCloneMode ? 'content_copy' : 'settings' }}</mat-icon>
+        <span>{{ isCloneMode ? 'Clone & Configure' : 'Configure Permissions' }}</span>
+      </button>
+    </div>
+  </div>
+</div>

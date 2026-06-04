@@ -1,0 +1,36 @@
+<div class="functions-page">
+  <button mat-button class="back-btn" routerLink="/dashboard">
+    <mat-icon>arrow_back</mat-icon>
+    Back to Dashboard
+  </button>
+
+  <div class="page-header animate-fade-in-up">
+    <div class="header-icon">
+      <mat-icon>admin_panel_settings</mat-icon>
+    </div>
+    <h1>Security Group Management</h1>
+    <p class="page-subtitle">Choose an action to get started</p>
+  </div>
+
+  <div class="actions-grid">
+    <div
+      *ngFor="let action of actions; let i = index"
+      class="action-card"
+      [style.animation-delay]="(i * 120 + 200) + 'ms'"
+      (click)="selectAction(action)"
+    >
+      <div class="card-glow" [style.background]="action.gradient"></div>
+      <div class="card-content">
+        <div class="action-icon" [style.background]="action.gradient" [style.box-shadow]="'0 8px 32px ' + action.shadowColor">
+          <mat-icon>{{ action.icon }}</mat-icon>
+        </div>
+        <h2>{{ action.title }}</h2>
+        <p>{{ action.description }}</p>
+        <div class="action-footer">
+          <span class="action-link">Get Started</span>
+          <mat-icon class="arrow-icon">arrow_forward</mat-icon>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

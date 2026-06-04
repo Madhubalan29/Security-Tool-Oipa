@@ -1,0 +1,38 @@
+<div class="dashboard-page">
+  <div class="page-header animate-fade-in-up">
+    <h1>Admin Dashboard</h1>
+    <p class="page-subtitle">Select a module to manage your OIPA security configuration</p>
+  </div>
+
+  <div class="modules-grid">
+    <div
+      *ngFor="let module of modules; let i = index"
+      class="module-card"
+      [class.disabled]="!module.enabled"
+      [style.animation-delay]="(i * 100 + 200) + 'ms'"
+      (click)="navigateToModule(module)"
+    >
+      <div class="card-glow" [style.background]="module.gradient"></div>
+
+      <div class="card-content">
+        <div class="card-icon" [style.background]="module.gradient" [style.box-shadow]="'0 8px 32px ' + module.shadowColor">
+          <mat-icon>{{ module.icon }}</mat-icon>
+        </div>
+
+        <h2>{{ module.title }}</h2>
+        <p>{{ module.description }}</p>
+
+        <div class="card-footer">
+          <span *ngIf="module.enabled" class="status-badge active">
+            <span class="dot"></span> Available
+          </span>
+          <span *ngIf="!module.enabled" class="status-badge inactive">
+            <mat-icon>lock</mat-icon> Coming Soon
+          </span>
+
+          <mat-icon *ngIf="module.enabled" class="arrow-icon">arrow_forward</mat-icon>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

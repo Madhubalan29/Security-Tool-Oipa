@@ -1,0 +1,187 @@
+.login-page {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  overflow: hidden;
+}
+
+// ── Animated background shapes ──
+.bg-shapes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.shape {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.08;
+
+  &.shape-1 {
+    width: 500px;
+    height: 500px;
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    top: -150px;
+    right: -100px;
+    animation: float 8s ease-in-out infinite;
+  }
+
+  &.shape-2 {
+    width: 350px;
+    height: 350px;
+    background: linear-gradient(135deg, #06b6d4, #10b981);
+    bottom: -100px;
+    left: -80px;
+    animation: float 10s ease-in-out infinite reverse;
+  }
+
+  &.shape-3 {
+    width: 200px;
+    height: 200px;
+    background: linear-gradient(135deg, #818cf8, #4f46e5);
+    top: 40%;
+    left: 15%;
+    animation: float 6s ease-in-out infinite 2s;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-30px) rotate(5deg); }
+}
+
+// ── Login card ──
+.login-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  padding: 48px 40px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.3);
+}
+
+.brand-section {
+  text-align: center;
+  margin-bottom: 40px;
+
+  .brand-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    margin-bottom: 20px;
+    box-shadow: 0 8px 32px rgba(79, 70, 229, 0.3);
+
+    mat-icon {
+      font-size: 36px;
+      width: 36px;
+      height: 36px;
+      color: #fff;
+    }
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+  }
+
+  .subtitle {
+    margin: 8px 0 0;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.875rem;
+    font-weight: 400;
+  }
+}
+
+// ── Form styling ──
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .full-width {
+    width: 100%;
+  }
+
+  // Override Material form fields for dark theme
+  ::ng-deep {
+    .mat-mdc-form-field {
+      .mdc-text-field--outlined {
+        .mdc-notched-outline__leading,
+        .mdc-notched-outline__notch,
+        .mdc-notched-outline__trailing {
+          border-color: rgba(255, 255, 255, 0.15) !important;
+        }
+      }
+
+      .mdc-text-field--outlined:not(.mdc-text-field--disabled).mdc-text-field--focused {
+        .mdc-notched-outline__leading,
+        .mdc-notched-outline__notch,
+        .mdc-notched-outline__trailing {
+          border-color: #818cf8 !important;
+        }
+      }
+
+      .mat-mdc-input-element {
+        color: #fff !important;
+      }
+
+      .mat-mdc-floating-label {
+        color: rgba(255, 255, 255, 0.5) !important;
+      }
+
+      .mat-mdc-form-field-icon-prefix {
+        color: rgba(255, 255, 255, 0.4);
+        padding-right: 8px;
+      }
+
+      .mat-mdc-form-field-icon-suffix {
+        color: rgba(255, 255, 255, 0.4);
+      }
+    }
+  }
+}
+
+.login-btn {
+  margin-top: 16px;
+  height: 48px;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.4);
+  transition: all 0.3s ease;
+
+  mat-icon {
+    margin-right: 8px;
+  }
+
+  &:hover {
+    box-shadow: 0 6px 24px rgba(79, 70, 229, 0.5);
+    transform: translateY(-1px);
+  }
+}
+
+.footer-text {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 0.75rem;
+  margin-top: 32px;
+  margin-bottom: 0;
+}

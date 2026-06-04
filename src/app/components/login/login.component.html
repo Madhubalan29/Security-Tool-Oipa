@@ -1,0 +1,46 @@
+<div class="login-page">
+  <!-- Animated background shapes -->
+  <div class="bg-shapes">
+    <div class="shape shape-1"></div>
+    <div class="shape shape-2"></div>
+    <div class="shape shape-3"></div>
+  </div>
+
+  <div class="login-container animate-fade-in-up">
+    <!-- Brand header -->
+    <div class="brand-section">
+      <div class="brand-icon">
+        <mat-icon>shield</mat-icon>
+      </div>
+      <h1>OIPA Security Tool</h1>
+      <p class="subtitle">Enterprise Security Administration</p>
+    </div>
+
+    <!-- Login form -->
+    <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="login-form">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Username</mat-label>
+        <mat-icon matPrefix>person</mat-icon>
+        <input matInput formControlName="username" placeholder="Enter your username" autocomplete="username">
+        <mat-error *ngIf="loginForm.get('username')?.hasError('required')">Username is required</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Password</mat-label>
+        <mat-icon matPrefix>lock</mat-icon>
+        <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" placeholder="Enter your password" autocomplete="current-password">
+        <button mat-icon-button matSuffix type="button" (click)="hidePassword = !hidePassword">
+          <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        <mat-error *ngIf="loginForm.get('password')?.hasError('required')">Password is required</mat-error>
+      </mat-form-field>
+
+      <button mat-raised-button color="primary" type="submit" class="login-btn">
+        <mat-icon>login</mat-icon>
+        <span>Sign In</span>
+      </button>
+    </form>
+
+    <p class="footer-text">Powered by Oracle Insurance Policy Administration</p>
+  </div>
+</div>

@@ -1,0 +1,41 @@
+<div class="create-page">
+  <button mat-button class="back-btn" routerLink="/security-group">
+    <mat-icon>arrow_back</mat-icon>
+    Back to Security Groups
+  </button>
+
+  <div class="form-card animate-fade-in-up">
+    <div class="card-header">
+      <div class="header-icon create">
+        <mat-icon>add_circle</mat-icon>
+      </div>
+      <h1>Create New Security Group</h1>
+      <p>Enter a name for the new security group. A unique identifier will be generated automatically.</p>
+    </div>
+
+    <form [formGroup]="createForm" (ngSubmit)="onCreate()" class="create-form">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Group Name</mat-label>
+        <mat-icon matPrefix>badge</mat-icon>
+        <input matInput formControlName="groupName" placeholder="e.g. ADMIN_GROUP" autocomplete="off">
+        <mat-hint>A descriptive name for this security group</mat-hint>
+        <mat-error *ngIf="createForm.get('groupName')?.hasError('required')">Group name is required</mat-error>
+        <mat-error *ngIf="createForm.get('groupName')?.hasError('minlength')">Minimum 2 characters</mat-error>
+      </mat-form-field>
+
+      <div *ngIf="errorMessage" class="error-banner">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <div class="form-actions">
+        <button mat-button type="button" routerLink="/security-group" class="cancel-btn">Cancel</button>
+        <button mat-raised-button color="primary" type="submit" [disabled]="createForm.invalid || isLoading" class="submit-btn">
+          <mat-spinner *ngIf="isLoading" diameter="20" class="btn-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isLoading">arrow_forward</mat-icon>
+          <span>{{ isLoading ? 'Creating...' : 'Create & Configure' }}</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

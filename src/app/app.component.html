@@ -1,0 +1,61 @@
+<!-- Login page: no shell -->
+<ng-container *ngIf="isLoginPage">
+  <router-outlet></router-outlet>
+</ng-container>
+
+<!-- App shell: sidebar + toolbar -->
+<ng-container *ngIf="!isLoginPage">
+  <mat-sidenav-container class="sidenav-container">
+    <mat-sidenav #sidenav mode="side" [opened]="sidenavOpened" class="sidenav">
+      <div class="brand">
+        <div class="brand-logo">
+          <mat-icon>shield</mat-icon>
+        </div>
+        <h2>OIPA Admin</h2>
+        <span class="brand-version">v2.0</span>
+      </div>
+      <mat-nav-list class="nav-list">
+        <a mat-list-item routerLink="/dashboard" routerLinkActive="active-link">
+          <mat-icon matListItemIcon>dashboard</mat-icon>
+          <div matListItemTitle>Dashboard</div>
+        </a>
+        <a mat-list-item routerLink="/security-group" routerLinkActive="active-link">
+          <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
+          <div matListItemTitle>Security Groups</div>
+        </a>
+      </mat-nav-list>
+    </mat-sidenav>
+
+    <mat-sidenav-content>
+      <mat-toolbar class="top-toolbar">
+        <button mat-icon-button (click)="sidenav.toggle()" class="menu-btn">
+          <mat-icon>menu</mat-icon>
+        </button>
+        <span class="toolbar-title">OIPA Security Tool</span>
+        <span class="toolbar-spacer"></span>
+        <button mat-icon-button [matMenuTriggerFor]="userMenu" class="profile-btn">
+          <mat-icon>account_circle</mat-icon>
+        </button>
+        <mat-menu #userMenu="matMenu">
+          <button mat-menu-item disabled>
+            <mat-icon>person</mat-icon>
+            <span>Profile</span>
+          </button>
+          <button mat-menu-item disabled>
+            <mat-icon>settings</mat-icon>
+            <span>Settings</span>
+          </button>
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="logout()">
+            <mat-icon>logout</mat-icon>
+            <span>Logout</span>
+          </button>
+        </mat-menu>
+      </mat-toolbar>
+
+      <div class="main-content">
+        <router-outlet></router-outlet>
+      </div>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</ng-container>

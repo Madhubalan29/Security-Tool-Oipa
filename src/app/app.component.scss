@@ -1,0 +1,132 @@
+.sidenav-container {
+  height: 100vh;
+}
+
+// ── Sidebar ──
+.sidenav {
+  width: 260px;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  border-right: none !important;
+}
+
+.brand {
+  padding: 28px 24px 24px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+  .brand-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    margin-bottom: 12px;
+    box-shadow: 0 4px 20px rgba(79, 70, 229, 0.35);
+
+    mat-icon {
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
+      color: #fff;
+    }
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+  }
+
+  .brand-version {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.3);
+    font-weight: 500;
+    display: block;
+    margin-top: 2px;
+  }
+}
+
+.nav-list {
+  padding: 16px 12px !important;
+
+  ::ng-deep {
+    .mat-mdc-list-item {
+      border-radius: 10px !important;
+      margin-bottom: 4px;
+      height: 44px !important;
+      color: rgba(255, 255, 255, 0.55);
+      transition: all 200ms ease;
+
+      .mat-mdc-list-item-icon {
+        color: rgba(255, 255, 255, 0.4) !important;
+      }
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.06) !important;
+        color: rgba(255, 255, 255, 0.9);
+
+        .mat-mdc-list-item-icon {
+          color: rgba(255, 255, 255, 0.7) !important;
+        }
+      }
+    }
+  }
+}
+
+.active-link {
+  background: rgba(79, 70, 229, 0.2) !important;
+  color: #ffffff !important;
+
+  ::ng-deep .mat-mdc-list-item-icon {
+    color: #818cf8 !important;
+  }
+}
+
+// ── Toolbar ──
+.top-toolbar {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  height: 56px;
+  padding: 0 16px;
+}
+
+.menu-btn {
+  color: var(--text-secondary);
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
+.toolbar-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-left: 8px;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.profile-btn {
+  color: var(--text-secondary);
+
+  &:hover {
+    color: var(--primary);
+  }
+}
+
+// ── Main content ──
+.main-content {
+  padding: 32px;
+  background-color: var(--surface-alt);
+  min-height: calc(100vh - 56px);
+}
