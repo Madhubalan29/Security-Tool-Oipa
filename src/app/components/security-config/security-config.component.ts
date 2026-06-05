@@ -418,13 +418,10 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     });
 
     // Apply inquiries
-    setTimeout(() => {
-      existing.companyInquiries?.forEach(ei => {
-        const inq = config.companyInquiries.find(i => guidEq(i.inquiryScreenNameGuid, ei.inquiryScreenNameGuid));
-        if (inq) inq.selected = true;
-      });
-  
-    }, 500);
+    existing.companyInquiries?.forEach(ei => {
+      const inq = config.companyInquiries.find(i => guidEq(i.inquiryScreenNameGuid, ei.inquiryScreenNameGuid));
+      if (inq) inq.selected = true;
+    });
 
     // Apply web services
     existing.companyWebServices?.forEach(ews => {
@@ -523,10 +520,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
             };
             config.plans.push(planConfig);
 
-            // Fetch independent plan transactions if they haven't been fetched yet
-            this.lookupService.getTransactions(planMeta.planGuid, undefined).subscribe({
-              next: (pTxns) => {
-                planConfig!.planTransactions = pTxns.map(pt => ({
+            // Fetch independent plan transactions and inquiries in parallel if they haven't been fetched yet
+            forkJoin({
+              pTxns: this.lookupService.getTransactions(planMeta.planGuid, undefined),
+              inqs: this.lookupService.getInquiryScreens(undefined, planMeta.planGuid)
+            }).subscribe({
+              next: (res) => {
+                planConfig!.planTransactions = res.pTxns.map(pt => ({
                   transactionGuid: pt.transactionGuid,
                   name: pt.transactionName,
                   selected: false,
@@ -537,7 +537,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
                   }))
                 }));
 
-                // Apply existing plan config again in case transactions arrived late
+                planConfig!.planInquiries = res.inqs.map(inq => ({
+                  inquiryScreenNameGuid: inq.inquiryScreenGuid,
+                  name: inq.screenName,
+                  selected: false
+                }));
+
+                // Apply existing plan config again in case transactions/inquiries arrived late
                 if (this.existingPayload) {
                   const existingCompany = this.existingPayload.securityGroup.companies
                     .find(c => guidEq(c.companyGuid, config.company.companyGuid));
@@ -637,8 +643,11 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     this.isSubLoading = true;
 
-    this.lookupService.getTransactions(plan.planGuid, undefined).subscribe({
-      next: (txns) => {
+    forkJoin({
+      txns: this.lookupService.getTransactions(plan.planGuid, undefined),
+      inqs: this.lookupService.getInquiryScreens(undefined, plan.planGuid)
+    }).subscribe({
+      next: (res) => {
         const newPlan: PlanConfig = {
           planGuid: plan.planGuid,
           name: plan.planName,
@@ -653,7 +662,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
               selected: false
             }))
           })),
-          planTransactions: txns.map(t => ({
+          planTransactions: res.txns.map(t => ({
             transactionGuid: t.transactionGuid,
             name: t.transactionName,
             selected: false,
@@ -664,7 +673,11 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
             }))
           })),
           productPlanTransactions: [],
-          planInquiries: []
+          planInquiries: res.inqs.map(inq => ({
+            inquiryScreenNameGuid: inq.inquiryScreenGuid,
+            name: inq.screenName,
+            selected: false
+          }))
         };
 
         // Apply existing config if modify mode
@@ -679,7 +692,6 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
         config.plans.push(newPlan);
         this.isSubLoading = false;
-    
       },
       error: () => {
         this.isSubLoading = false;
@@ -723,7 +735,16 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     existing.planInquiries?.forEach(ei => {
       const inq = planConfig.planInquiries.find(i => guidEq(i.inquiryScreenNameGuid, ei.inquiryScreenNameGuid));
-      if (inq) inq.selected = true;
+      if (inq) {
+        inq.selected = true;
+      } else {
+        // Fallback to preserve inquiry screen even if lookup metadata isn't populated
+        planConfig.planInquiries.push({
+          inquiryScreenNameGuid: ei.inquiryScreenNameGuid,
+          name: ei.name || 'Unknown Screen',
+          selected: true
+        });
+      }
     });
   }
 
@@ -835,7 +856,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
               buttons: p.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
             })),
           productTransactions: prod.productTransactions
-            .filter(t => t.buttons.some(b => b.selected))
+            .filter(t => t.selected || t.buttons.some(b => b.selected))
             .map(t => ({
               transactionGuid: t.transactionGuid,
               buttons: t.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
@@ -862,7 +883,9 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
               transactionGuid: t.transactionGuid,
               buttons: t.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
             })),
-          planInquiries: []
+          planInquiries: plan.planInquiries
+            .filter(i => i.selected)
+            .map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }))
         }));
 
       return {

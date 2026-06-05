@@ -286,7 +286,7 @@ export class SecurityGroupWizardComponent implements OnInit {
             buttons: p.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
           })),
         productTransactions: prod.productTransactions
-          .filter(t => t.buttons.some(b => b.selected))
+          .filter(t => t.selected || t.buttons.some(b => b.selected))
           .map(t => ({
             transactionGuid: t.transactionGuid,
             buttons: t.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
@@ -304,7 +304,7 @@ export class SecurityGroupWizardComponent implements OnInit {
             buttons: p.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
           })),
         planTransactions: plan.planTransactions
-          .filter(t => t.buttons.some(b => b.selected))
+          .filter(t => t.selected || t.buttons.some(b => b.selected))
           .map(t => ({
             transactionGuid: t.transactionGuid,
             buttons: t.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
