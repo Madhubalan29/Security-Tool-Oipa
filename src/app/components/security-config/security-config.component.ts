@@ -637,17 +637,22 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     this.removeProduct(config, productGuid);
   }
 
-  // ── Plan Management ──
   loadPlan(config: CompanyConfig, plan: AsPlan): void {
     if (config.plans.find(p => guidEq(p.planGuid, plan.planGuid))) return;
 
     this.isSubLoading = true;
 
-    forkJoin({
+    const fetches: any = {
       txns: this.lookupService.getTransactions(plan.planGuid, undefined),
       inqs: this.lookupService.getInquiryScreens(undefined, plan.planGuid)
-    }).subscribe({
-      next: (res) => {
+    };
+
+    if (plan.productGuid) {
+      fetches.prodTxns = this.lookupService.getTransactions(undefined, plan.productGuid);
+    }
+
+    forkJoin(fetches).subscribe({
+      next: (res: any) => {
         const newPlan: PlanConfig = {
           planGuid: plan.planGuid,
           name: plan.planName,
@@ -662,7 +667,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
               selected: false
             }))
           })),
-          planTransactions: res.txns.map(t => ({
+          planTransactions: res.txns.map((t: any) => ({
             transactionGuid: t.transactionGuid,
             name: t.transactionName,
             selected: false,
@@ -672,8 +677,17 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
               selected: false
             }))
           })),
-          productPlanTransactions: [],
-          planInquiries: res.inqs.map(inq => ({
+          productPlanTransactions: res.prodTxns ? res.prodTxns.map((pt: any) => ({
+            transactionGuid: pt.transactionGuid,
+            name: pt.transactionName,
+            selected: false,
+            buttons: this.allButtons.map(b => ({
+              buttonGuid: b.buttonGuid,
+              name: b.buttonName,
+              selected: false
+            }))
+          })) : [],
+          planInquiries: res.inqs.map((inq: any) => ({
             inquiryScreenNameGuid: inq.inquiryScreenGuid,
             name: inq.screenName,
             selected: false
@@ -1295,7 +1309,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     if (!config || !config.plans || !config.availablePlans) return [];
     return config.plans.filter(p => {
       const planMeta = config.availablePlans.find(meta => guidEq(meta.planGuid, p.planGuid));
-      return planMeta?.productGuid && config.products.some(prod => guidEq(prod.productGuid, planMeta.productGuid));
+      return !!planMeta?.productGuid;
     });
   }
 }
