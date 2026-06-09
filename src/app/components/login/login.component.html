@@ -16,28 +16,35 @@
       <p class="subtitle">Enterprise Security Administration</p>
     </div>
 
+    <!-- Error banner -->
+    <div class="error-banner animate-fade-in" *ngIf="errorMessage">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ errorMessage }}</span>
+    </div>
+
     <!-- Login form -->
     <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="login-form">
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Username</mat-label>
         <mat-icon matPrefix>person</mat-icon>
-        <input matInput formControlName="username" placeholder="Enter your username" autocomplete="username">
+        <input matInput formControlName="username" placeholder="Enter your username" autocomplete="username" [readonly]="isLoading">
         <mat-error *ngIf="loginForm.get('username')?.hasError('required')">Username is required</mat-error>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Password</mat-label>
         <mat-icon matPrefix>lock</mat-icon>
-        <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" placeholder="Enter your password" autocomplete="current-password">
-        <button mat-icon-button matSuffix type="button" (click)="hidePassword = !hidePassword">
+        <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" placeholder="Enter your password" autocomplete="current-password" [readonly]="isLoading">
+        <button mat-icon-button matSuffix type="button" (click)="hidePassword = !hidePassword" [disabled]="isLoading">
           <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
         </button>
         <mat-error *ngIf="loginForm.get('password')?.hasError('required')">Password is required</mat-error>
       </mat-form-field>
 
-      <button mat-raised-button color="primary" type="submit" class="login-btn">
-        <mat-icon>login</mat-icon>
-        <span>Sign In</span>
+      <button mat-raised-button color="primary" type="submit" class="login-btn" [disabled]="loginForm.invalid || isLoading">
+        <mat-spinner diameter="20" *ngIf="isLoading" class="btn-spinner"></mat-spinner>
+        <mat-icon *ngIf="!isLoading">login</mat-icon>
+        <span>{{ isLoading ? 'Signing In...' : 'Sign In' }}</span>
       </button>
     </form>
 

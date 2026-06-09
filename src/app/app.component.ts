@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { SecurityStateService } from './services/security-state.service';
+import { AuthService } from './services/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -15,7 +16,8 @@ export class AppComponent {
 
   constructor(
     private router: Router,
-    private stateService: SecurityStateService
+    private stateService: SecurityStateService,
+    private authService: AuthService
   ) {
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
@@ -24,14 +26,14 @@ export class AppComponent {
       this.isLoginPage = url === '/login';
 
       // If user reloaded on a non-login page but never logged in, redirect to login
-      if (!this.isLoginPage && !sessionStorage.getItem('sg_loggedIn')) {
+      if (!this.isLoginPage && !this.authService.isLoggedIn()) {
         this.router.navigate(['/login']);
       }
     });
   }
 
   logout(): void {
-    sessionStorage.removeItem('sg_loggedIn');
+    this.authService.logout();
     this.stateService.resetState();
     this.router.navigate(['/login']);
   }
