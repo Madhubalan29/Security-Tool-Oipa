@@ -816,3 +816,154 @@
   color: var(--text-secondary);
   margin: 0;
 }
+
+// ══════════════════════════════════════════
+// Feature 6: Page / Button label styling
+// ══════════════════════════════════════════
+
+// Page & Transaction names — dark charcoal, heavier weight
+.page-label {
+  font-weight: 600;
+  color: #1e293b;
+  letter-spacing: -0.01em;
+}
+
+// Button names — distinct teal colour, slightly lighter weight
+.btn-label {
+  font-weight: 500;
+  color: #0d9488; // teal-600
+  font-size: 0.855rem;
+}
+
+// ── Dual filter row (page filter + button filter side-by-side) ──
+.dual-filter-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  align-items: flex-start;
+
+  .filter-field {
+    flex: 1;
+    min-width: 180px;
+    margin-bottom: 0 !important;
+  }
+
+  &.nested {
+    padding-left: 16px;
+  }
+}
+
+// ══════════════════════════════════════════
+// Feature 6: Bulk Button Action Card
+// ══════════════════════════════════════════
+
+.bulk-btn-action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.04), rgba(79, 70, 229, 0.04));
+  border: 1px solid rgba(13, 148, 136, 0.2);
+  box-shadow: 0 1px 6px rgba(13, 148, 136, 0.06);
+
+  .bulk-btn-action-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+
+    .bulk-btn-action-icon {
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+      color: #0d9488;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .bulk-btn-action-title {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #0f766e;
+      letter-spacing: -0.01em;
+      margin-bottom: 2px;
+    }
+
+    .bulk-btn-action-desc {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+  }
+
+  .bulk-btn-action-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .bulk-btn-select {
+      min-width: 220px;
+      flex: 1;
+
+      ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
+      ::ng-deep .mdc-text-field { height: 40px; }
+    }
+
+    .bulk-btn-target-select {
+      min-width: 180px;
+
+      ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
+      ::ng-deep .mdc-text-field { height: 40px; }
+    }
+
+    .bulk-btn-action-btns {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+      padding-bottom: 2px;
+    }
+  }
+}
+
+// Grant button
+.bulk-action-grant {
+  background: linear-gradient(135deg, #059669, #0d9488) !important;
+  color: #fff !important;
+  height: 40px !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+  box-shadow: 0 2px 10px rgba(5, 150, 105, 0.3) !important;
+  transition: box-shadow var(--transition-fast) !important;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  &:hover:not([disabled]) {
+    box-shadow: 0 4px 18px rgba(5, 150, 105, 0.45) !important;
+  }
+  &[disabled] { opacity: 0.45; box-shadow: none !important; }
+}
+
+// Revoke button
+.bulk-action-revoke {
+  background: linear-gradient(135deg, #dc2626, #e11d48) !important;
+  color: #fff !important;
+  height: 40px !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+  box-shadow: 0 2px 10px rgba(220, 38, 38, 0.25) !important;
+  transition: box-shadow var(--transition-fast) !important;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  &:hover:not([disabled]) {
+    box-shadow: 0 4px 18px rgba(220, 38, 38, 0.4) !important;
+  }
+  &[disabled] { opacity: 0.45; box-shadow: none !important; }
+}
+
