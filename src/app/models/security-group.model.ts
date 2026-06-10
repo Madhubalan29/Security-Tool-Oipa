@@ -88,3 +88,10 @@ export interface SecurityGroupDto {
 export interface SecurityGroupRequestDto {
   securityGroup: SecurityGroupDto;
 }
+
+export interface GenerateScriptsResponseDto {
+  securityGroupGuid: string;
+  groupName: string;
+  scripts: string[];
+}
+

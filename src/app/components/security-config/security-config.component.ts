@@ -69,6 +69,7 @@ function guidEq(a: string | undefined | null, b: string | undefined | null): boo
 })
 export class SecurityConfigComponent implements OnInit, OnDestroy {
   @ViewChild('inheritDialogTemplate') inheritDialogTemplate!: TemplateRef<any>;
+  @ViewChild('scriptsDialogTemplate') scriptsDialogTemplate!: TemplateRef<any>;
 
   // Master data
   allCompanies: AsCompany[] = [];
@@ -1122,11 +1123,35 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     this.securityGroupService.saveGroupConfig(payload).subscribe({
       next: (result) => {
         this.isSaving = false;
-        console.log('Save successful:', result);
-        // Clear persisted config state after successful save
-        this.stateService.clearConfigState();
-        // Navigate back or show success
-        this.router.navigate(['/security-group']);
+        console.log('Scripts generation successful:', result);
+        
+        // Open the dialog to display generated scripts and ask for confirmation
+        const dialogRef = this.dialog.open(this.scriptsDialogTemplate, {
+          width: '650px',
+          data: {
+            scripts: result.scripts || []
+          }
+        });
+
+        dialogRef.afterClosed().subscribe(confirm => {
+          if (confirm) {
+            this.isSaving = true;
+            this.securityGroupService.executeScripts(result.scripts || []).subscribe({
+              next: () => {
+                this.isSaving = false;
+                // Clear persisted config state after successful save
+                this.stateService.clearConfigState();
+                // Navigate back
+                this.router.navigate(['/security-group']);
+              },
+              error: (err) => {
+                this.isSaving = false;
+                console.error('Execution error:', err);
+                alert('An error occurred while executing the SQL scripts. Please check the logs.');
+              }
+            });
+          }
+        });
       },
       error: (err) => {
         this.isSaving = false;

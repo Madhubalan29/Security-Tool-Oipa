@@ -857,3 +857,29 @@
     <button mat-raised-button color="primary" [mat-dialog-close]="data.availablePlans" [disabled]="data.availablePlans.length === 0">Apply to Selected</button>
   </mat-dialog-actions>
 </ng-template>
+
+<!-- Inline Dialog Template for SQL Scripts Review & Execution -->
+<ng-template #scriptsDialogTemplate let-data>
+  <h2 mat-dialog-title>Review SQL Scripts</h2>
+  <mat-dialog-content class="scripts-dialog-content">
+    <p>The following SQL delta scripts have been generated based on your configuration changes.</p>
+    <div class="scripts-container" *ngIf="data.scripts && data.scripts.length > 0; else noScripts">
+      <pre><code>{{ data.scripts.join('\n') }}</code></pre>
+    </div>
+    <ng-template #noScripts>
+      <div class="no-scripts-hint">
+        <mat-icon>info</mat-icon>
+        <span>No delta queries were generated. The configuration matches the database state.</span>
+      </div>
+    </ng-template>
+    <p class="warning-text" *ngIf="data.scripts && data.scripts.length > 0">
+      <mat-icon>warning</mat-icon>
+      Confirming will execute these queries directly on the database.
+    </p>
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button mat-button mat-dialog-close>Cancel</button>
+    <button mat-raised-button color="primary" [mat-dialog-close]="true" [disabled]="!data.scripts || data.scripts.length === 0">Confirm &amp; Insert</button>
+  </mat-dialog-actions>
+</ng-template>
+

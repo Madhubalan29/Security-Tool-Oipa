@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { SecurityGroupRequestDto, SecurityGroupDto } from '../models/security-group.model';
+import { SecurityGroupRequestDto, SecurityGroupDto, GenerateScriptsResponseDto } from '../models/security-group.model';
 
 @Injectable({
   providedIn: 'root'
@@ -42,7 +42,16 @@ export class SecurityGroupService {
    * POST /api/security-groups
    * This sends the entire JSON tree for creation or modification.
    */
-  saveGroupConfig(request: SecurityGroupRequestDto): Observable<string[]> {
-    return this.http.post<string[]>(`${this.baseUrl}/security-groups/generate-scripts`, request);
+  saveGroupConfig(request: SecurityGroupRequestDto): Observable<GenerateScriptsResponseDto> {
+    return this.http.post<GenerateScriptsResponseDto>(`${this.baseUrl}/security-groups/generate-scripts`, request);
+  }
+
+  /**
+   * Execute generated SQL scripts directly in the database.
+   * POST /api/security-groups/execute-scripts
+   */
+  executeScripts(scripts: string[]): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/security-groups/execute-scripts`, scripts);
   }
 }
+
