@@ -2,7 +2,7 @@ const http = require('http');
 
 async function fetchJson(path) {
   return new Promise((resolve, reject) => {
-    http.get(`http://localhost:8015${path}`, res => {
+    http.get(`http://10.10.3.237:8015${path}`, res => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
