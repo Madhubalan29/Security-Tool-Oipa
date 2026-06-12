@@ -58,13 +58,14 @@
       <div *ngIf="isCloneMode && selectedGuid" class="clone-name-input">
         <mat-form-field appearance="outline">
           <mat-label>New Security Group Name</mat-label>
-          <input matInput [(ngModel)]="newCloneName" placeholder="Enter new name...">
+          <input matInput [(ngModel)]="newCloneName" placeholder="Enter new name..." [disabled]="isProcessing">
         </mat-form-field>
       </div>
-      <button mat-button routerLink="/security-group" class="cancel-btn">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="!selectedGuid || (isCloneMode && !newCloneName)" (click)="proceedToConfig()" class="submit-btn">
-        <mat-icon>{{ isCloneMode ? 'content_copy' : 'settings' }}</mat-icon>
-        <span>{{ isCloneMode ? 'Clone & Configure' : 'Configure Permissions' }}</span>
+      <button mat-button routerLink="/security-group" class="cancel-btn" [disabled]="isProcessing">Cancel</button>
+      <button mat-raised-button color="primary" [disabled]="!selectedGuid || (isCloneMode && !newCloneName) || isProcessing" (click)="proceedToConfig()" class="submit-btn">
+        <mat-spinner *ngIf="isProcessing" diameter="20" class="btn-spinner"></mat-spinner>
+        <mat-icon *ngIf="!isProcessing">{{ isCloneMode ? 'content_copy' : 'settings' }}</mat-icon>
+        <span>{{ isProcessing ? (isCloneMode ? 'Cloning...' : 'Configuring...') : (isCloneMode ? 'Clone & Configure' : 'Configure Permissions') }}</span>
       </button>
     </div>
   </div>

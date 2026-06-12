@@ -41,6 +41,7 @@ import { SecurityFunctionsComponent } from './components/security-functions/secu
 import { CreateGroupComponent } from './components/create-group/create-group.component';
 import { ModifyGroupComponent } from './components/modify-group/modify-group.component';
 import { SecurityConfigComponent } from './components/security-config/security-config.component';
+import { SqlConfirmDialogComponent } from './components/sql-confirm-dialog/sql-confirm-dialog.component';
 
 @NgModule({
   declarations: [
@@ -50,7 +51,8 @@ import { SecurityConfigComponent } from './components/security-config/security-c
     SecurityFunctionsComponent,
     CreateGroupComponent,
     ModifyGroupComponent,
-    SecurityConfigComponent
+    SecurityConfigComponent,
+    SqlConfirmDialogComponent
   ],
   imports: [
     BrowserModule,

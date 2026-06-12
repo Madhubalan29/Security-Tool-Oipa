@@ -169,3 +169,12 @@
   align-items: center;
   gap: 8px;
 }
+
+.btn-spinner {
+  display: inline-block;
+
+  ::ng-deep circle {
+    stroke: white !important;
+  }
+}
+

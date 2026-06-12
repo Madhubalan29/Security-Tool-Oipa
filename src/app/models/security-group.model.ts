@@ -95,3 +95,10 @@ export interface GenerateScriptsResponseDto {
   scripts: string[];
 }
 
+export interface CreateGroupResponseDto {
+  securityGroupGuid: string;
+  groupName: string;
+  insertScript: string;
+}
+
+

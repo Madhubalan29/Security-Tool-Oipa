@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { SecurityGroupRequestDto, SecurityGroupDto, GenerateScriptsResponseDto } from '../models/security-group.model';
+import { SecurityGroupRequestDto, SecurityGroupDto, GenerateScriptsResponseDto, CreateGroupResponseDto } from '../models/security-group.model';
 
 @Injectable({
   providedIn: 'root'
@@ -17,8 +17,8 @@ export class SecurityGroupService {
    * POST /api/security-groups/create
    * Returns the generated GUID for the new group.
    */
-  createGroup(groupName: string): Observable<{ securityGroupGuid: string }> {
-    return this.http.post<{ securityGroupGuid: string }>(`${this.baseUrl}/security-groups/create`, { groupName });
+  createGroup(groupName: string): Observable<CreateGroupResponseDto> {
+    return this.http.post<CreateGroupResponseDto>(`${this.baseUrl}/security-groups/create`, { groupName });
   }
 
   /**
