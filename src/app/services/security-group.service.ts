@@ -8,7 +8,7 @@ import { SecurityGroupRequestDto, SecurityGroupDto, GenerateScriptsResponseDto, 
   providedIn: 'root'
 })
 export class SecurityGroupService {
-  private baseUrl = environment.apiUrl;
+  private baseUrl = environment.coreApiUrl;
 
   constructor(private http: HttpClient) {}
 

@@ -17,7 +17,7 @@ import {
   providedIn: 'root'
 })
 export class LookupService {
-  private baseUrl = environment.apiUrl;
+  private baseUrl = environment.coreApiUrl;
 
   constructor(private http: HttpClient) {}
 
