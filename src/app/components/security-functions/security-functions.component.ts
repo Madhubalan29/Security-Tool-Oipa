@@ -36,6 +36,15 @@ export class SecurityFunctionsComponent {
       mode: 'clone' as const,
       gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
       shadowColor: 'rgba(139, 92, 246, 0.3)'
+    },
+    {
+      title: 'View Security Group',
+      description: 'Select an existing security group to view its permission hierarchy and generate migration scripts.',
+      icon: 'visibility',
+      route: '/security-group/view',
+      mode: 'view' as const,
+      gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+      shadowColor: 'rgba(59, 130, 246, 0.3)'
     }
   ];
 

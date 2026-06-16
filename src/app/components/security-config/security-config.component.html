@@ -6,8 +6,8 @@
       Security Groups
     </a>
     <mat-icon class="breadcrumb-sep">chevron_right</mat-icon>
-    <span class="breadcrumb-current" [class.create]="mode === 'create'" [class.modify]="mode === 'modify'" [class.clone]="mode === 'clone'">
-      {{ mode === 'create' ? 'Create' : mode === 'clone' ? 'Clone' : 'Modify' }}
+    <span class="breadcrumb-current" [class.create]="mode === 'create'" [class.modify]="mode === 'modify'" [class.clone]="mode === 'clone'" [class.view]="mode === 'view'">
+      {{ mode === 'create' ? 'Create' : mode === 'clone' ? 'Clone' : mode === 'modify' ? 'Modify' : 'View' }}
     </span>
     <ng-container *ngIf="activeStep === 1 && activeConfig">
       <mat-icon class="breadcrumb-sep">chevron_right</mat-icon>
@@ -18,9 +18,9 @@
   <!-- Header -->
   <div class="page-header animate-fade-in-up">
     <div class="header-meta">
-      <span class="mode-badge" [class.create]="mode === 'create'" [class.modify]="mode === 'modify'" [class.clone]="mode === 'clone'">
-        <mat-icon>{{ mode === 'create' ? 'add_circle' : mode === 'clone' ? 'content_copy' : 'edit' }}</mat-icon>
-        {{ mode === 'create' ? 'Create Mode' : mode === 'clone' ? 'Clone Mode' : 'Modify Mode' }}
+      <span class="mode-badge" [class.create]="mode === 'create'" [class.modify]="mode === 'modify'" [class.clone]="mode === 'clone'" [class.view]="mode === 'view'">
+        <mat-icon>{{ mode === 'create' ? 'add_circle' : mode === 'clone' ? 'content_copy' : mode === 'modify' ? 'edit' : 'visibility' }}</mat-icon>
+        {{ mode === 'create' ? 'Create Mode' : mode === 'clone' ? 'Clone Mode' : mode === 'modify' ? 'Modify Mode' : 'View Mode' }}
       </span>
       <h1>{{ groupName || 'Security Configuration' }}</h1>
       <p class="guid-display" *ngIf="groupGuid">GUID: {{ groupGuid }}</p>
@@ -77,8 +77,28 @@
 
   <!-- ═══════════ STEP 2: Configuration ═══════════ -->
   <div *ngIf="!isLoading && activeStep === 1" class="step-container animate-fade-in-up">
+    <!-- View Mode Toggle Bar (Feature for View Mode) -->
+    <div class="view-mode-toggle-bar animate-fade-in-up" *ngIf="mode === 'view'">
+      <div class="toggle-buttons">
+        <button mat-button [class.active]="viewType === 'tree'" (click)="viewType = 'tree'">
+          <mat-icon>hierarchy</mat-icon> Tree View
+        </button>
+        <button mat-button [class.active]="viewType === 'tabs'" (click)="viewType = 'tabs'">
+          <mat-icon>tab</mat-icon> Tabbed View
+        </button>
+      </div>
+      <div class="tree-controls" *ngIf="viewType === 'tree'">
+        <button mat-stroked-button (click)="expandAll()" class="control-btn">
+          <mat-icon>unfold_more</mat-icon> Expand All
+        </button>
+        <button mat-stroked-button (click)="collapseAll()" class="control-btn">
+          <mat-icon>unfold_less</mat-icon> Collapse All
+        </button>
+      </div>
+    </div>
+
     <!-- Company tabs (sticky - Feature 5) -->
-    <div class="company-tabs-bar">
+    <div class="company-tabs-bar" *ngIf="mode !== 'view' || viewType === 'tabs'">
       <button mat-button class="back-step-btn" (click)="backToCompanySelection()">
         <mat-icon>arrow_back</mat-icon>
         Companies
@@ -97,8 +117,244 @@
       </div>
     </div>
 
+    <!-- Unified Tree View (View Mode - Tree Layout) -->
+    <div class="tree-view-wrapper animate-fade-in-up" *ngIf="mode === 'view' && viewType === 'tree'">
+      <div class="group-tree-card">
+        <div class="tree-header">
+          <div class="header-icon-wrapper">
+            <mat-icon class="group-icon">security</mat-icon>
+          </div>
+          <div>
+            <h3>{{ groupName }} Hierarchy</h3>
+            <p>Complete permission tree mapping for this security group</p>
+          </div>
+        </div>
+        
+        <div class="tree-body">
+          <!-- Companies loop -->
+          <div *ngFor="let config of selectedCompanies" class="tree-company-node">
+            <div class="tree-node-header clickable" (click)="toggleNode('company_' + config.company.companyGuid)">
+              <mat-icon class="arrow-icon">{{ isNodeExpanded('company_' + config.company.companyGuid, true) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+              <mat-icon class="node-icon company-icon">business</mat-icon>
+              <span class="node-title">{{ config.company.companyName }}</span>
+              <span class="node-badge">{{ getConfiguredCount(config) }} permissions</span>
+            </div>
+            
+            <div class="tree-node-children" *ngIf="isNodeExpanded('company_' + config.company.companyGuid, true)">
+              
+              <!-- Company Pages section -->
+              <div class="tree-section-node" *ngIf="hasSelectedPages(config.companyPages)">
+                <div class="tree-node-header clickable" (click)="toggleNode('company_' + config.company.companyGuid + '_pages')">
+                  <mat-icon class="arrow-icon">{{ isNodeExpanded('company_' + config.company.companyGuid + '_pages', true) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                  <mat-icon class="node-icon section-icon">description</mat-icon>
+                  <span class="node-title">Company Pages</span>
+                </div>
+                
+                <div class="tree-node-children" *ngIf="isNodeExpanded('company_' + config.company.companyGuid + '_pages', true)">
+                  <div *ngFor="let page of getSelectedPages(config.companyPages)" class="tree-item-node">
+                    <div class="tree-node-header clickable" (click)="toggleNode('page_' + config.company.companyGuid + '_' + page.pageGuid)">
+                      <mat-icon class="arrow-icon" *ngIf="page.buttons && page.buttons.length > 0">{{ isNodeExpanded('page_' + config.company.companyGuid + '_' + page.pageGuid) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                      <mat-icon class="node-icon page-icon">article</mat-icon>
+                      <span class="node-title">{{ page.name }}</span>
+                    </div>
+                    <div class="tree-node-children buttons-list" *ngIf="page.buttons && page.buttons.length > 0 && isNodeExpanded('page_' + config.company.companyGuid + '_' + page.pageGuid)">
+                      <div class="button-tag-container">
+                        <span class="button-tag" *ngFor="let btn of getSelectedButtons(page.buttons)">
+                          <mat-icon>smart_button</mat-icon> {{ btn.name }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Inquiries section -->
+              <div class="tree-section-node" *ngIf="hasSelectedInquiries(config.companyInquiries)">
+                <div class="tree-node-header clickable" (click)="toggleNode('company_' + config.company.companyGuid + '_inqs')">
+                  <mat-icon class="arrow-icon">{{ isNodeExpanded('company_' + config.company.companyGuid + '_inqs') ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                  <mat-icon class="node-icon section-icon">search</mat-icon>
+                  <span class="node-title">Inquiry Screens</span>
+                </div>
+                <div class="tree-node-children" *ngIf="isNodeExpanded('company_' + config.company.companyGuid + '_inqs')">
+                  <div *ngFor="let inq of getSelectedInquiries(config.companyInquiries)" class="tree-leaf-node">
+                    <mat-icon class="leaf-icon">find_in_page</mat-icon>
+                    <span>{{ inq.name }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Web Services section -->
+              <div class="tree-section-node" *ngIf="hasSelectedWebServices(config.companyWebServices)">
+                <div class="tree-node-header clickable" (click)="toggleNode('company_' + config.company.companyGuid + '_ws')">
+                  <mat-icon class="arrow-icon">{{ isNodeExpanded('company_' + config.company.companyGuid + '_ws') ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                  <mat-icon class="node-icon section-icon">dns</mat-icon>
+                  <span class="node-title">Web Services</span>
+                </div>
+                <div class="tree-node-children" *ngIf="isNodeExpanded('company_' + config.company.companyGuid + '_ws')">
+                  <div *ngFor="let ws of getSelectedWebServices(config.companyWebServices)" class="tree-leaf-node">
+                    <mat-icon class="leaf-icon">settings_ethernet</mat-icon>
+                    <span>{{ ws.name }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Products section -->
+              <div class="tree-section-node" *ngIf="hasSelectedProducts(config.products)">
+                <div class="tree-node-header clickable" (click)="toggleNode('company_' + config.company.companyGuid + '_prods')">
+                  <mat-icon class="arrow-icon">{{ isNodeExpanded('company_' + config.company.companyGuid + '_prods') ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                  <mat-icon class="node-icon section-icon">inventory_2</mat-icon>
+                  <span class="node-title">Products</span>
+                </div>
+                
+                <div class="tree-node-children" *ngIf="isNodeExpanded('company_' + config.company.companyGuid + '_prods')">
+                  <div *ngFor="let prod of getSelectedProducts(config.products)" class="tree-product-node">
+                    <div class="tree-node-header clickable" (click)="toggleNode('prod_' + config.company.companyGuid + '_' + prod.productGuid)">
+                      <mat-icon class="arrow-icon">{{ isNodeExpanded('prod_' + config.company.companyGuid + '_' + prod.productGuid) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                      <mat-icon class="node-icon product-icon">shopping_bag</mat-icon>
+                      <span class="node-title">{{ prod.name }}</span>
+                    </div>
+                    
+                    <div class="tree-node-children" *ngIf="isNodeExpanded('prod_' + config.company.companyGuid + '_' + prod.productGuid)">
+                      
+                      <!-- Product Pages -->
+                      <div class="tree-sub-section" *ngIf="hasSelectedPages(prod.productPages)">
+                        <div class="sub-section-title">Pages</div>
+                        <div *ngFor="let page of getSelectedPages(prod.productPages)" class="tree-item-node">
+                          <div class="tree-node-header clickable" (click)="toggleNode('page_' + config.company.companyGuid + '_' + prod.productGuid + '_' + page.pageGuid)">
+                            <mat-icon class="arrow-icon" *ngIf="page.buttons && page.buttons.length > 0">{{ isNodeExpanded('page_' + config.company.companyGuid + '_' + prod.productGuid + '_' + page.pageGuid) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                            <mat-icon class="node-icon page-icon">article</mat-icon>
+                            <span class="node-title">{{ page.name }}</span>
+                          </div>
+                          <div class="tree-node-children buttons-list" *ngIf="page.buttons && page.buttons.length > 0 && isNodeExpanded('page_' + config.company.companyGuid + '_' + prod.productGuid + '_' + page.pageGuid)">
+                            <div class="button-tag-container">
+                              <span class="button-tag" *ngFor="let btn of getSelectedButtons(page.buttons)">
+                                <mat-icon>smart_button</mat-icon> {{ btn.name }}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Product Transactions -->
+                      <div class="tree-sub-section" *ngIf="hasSelectedTransactions(prod.productTransactions)">
+                        <div class="sub-section-title">Transactions</div>
+                        <div *ngFor="let txn of getSelectedTransactions(prod.productTransactions)" class="tree-item-node">
+                          <div class="tree-node-header clickable" (click)="toggleNode('txn_' + config.company.companyGuid + '_' + prod.productGuid + '_' + txn.transactionGuid)">
+                            <mat-icon class="arrow-icon" *ngIf="txn.buttons && txn.buttons.length > 0">{{ isNodeExpanded('txn_' + config.company.companyGuid + '_' + prod.productGuid + '_' + txn.transactionGuid) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                            <mat-icon class="node-icon txn-icon">account_balance_wallet</mat-icon>
+                            <span class="node-title">{{ txn.name }}</span>
+                          </div>
+                          <div class="tree-node-children buttons-list" *ngIf="txn.buttons && txn.buttons.length > 0 && isNodeExpanded('txn_' + config.company.companyGuid + '_' + prod.productGuid + '_' + txn.transactionGuid)">
+                            <div class="button-tag-container">
+                              <span class="button-tag" *ngFor="let btn of getSelectedButtons(txn.buttons)">
+                                <mat-icon>smart_button</mat-icon> {{ btn.name }}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Plans section -->
+              <div class="tree-section-node" *ngIf="hasSelectedPlans(config.plans)">
+                <div class="tree-node-header clickable" (click)="toggleNode('company_' + config.company.companyGuid + '_plans')">
+                  <mat-icon class="arrow-icon">{{ isNodeExpanded('company_' + config.company.companyGuid + '_plans') ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                  <mat-icon class="node-icon section-icon">assignment</mat-icon>
+                  <span class="node-title">Plans</span>
+                </div>
+                
+                <div class="tree-node-children" *ngIf="isNodeExpanded('company_' + config.company.companyGuid + '_plans')">
+                  <div *ngFor="let plan of getSelectedPlans(config.plans)" class="tree-plan-node">
+                    <div class="tree-node-header clickable" (click)="toggleNode('plan_' + config.company.companyGuid + '_' + plan.planGuid)">
+                      <mat-icon class="arrow-icon">{{ isNodeExpanded('plan_' + config.company.companyGuid + '_' + plan.planGuid) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                      <mat-icon class="node-icon plan-icon">view_agenda</mat-icon>
+                      <span class="node-title">{{ plan.name }}</span>
+                    </div>
+                    
+                    <div class="tree-node-children" *ngIf="isNodeExpanded('plan_' + config.company.companyGuid + '_' + plan.planGuid)">
+                      
+                      <!-- Plan Pages -->
+                      <div class="tree-sub-section" *ngIf="hasSelectedPages(plan.planPages)">
+                        <div class="sub-section-title">Pages</div>
+                        <div *ngFor="let page of getSelectedPages(plan.planPages)" class="tree-item-node">
+                          <div class="tree-node-header clickable" (click)="toggleNode('page_' + config.company.companyGuid + '_' + plan.planGuid + '_' + page.pageGuid)">
+                            <mat-icon class="arrow-icon" *ngIf="page.buttons && page.buttons.length > 0">{{ isNodeExpanded('page_' + config.company.companyGuid + '_' + plan.planGuid + '_' + page.pageGuid) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                            <mat-icon class="node-icon page-icon">article</mat-icon>
+                            <span class="node-title">{{ page.name }}</span>
+                          </div>
+                          <div class="tree-node-children buttons-list" *ngIf="page.buttons && page.buttons.length > 0 && isNodeExpanded('page_' + config.company.companyGuid + '_' + plan.planGuid + '_' + page.pageGuid)">
+                            <div class="button-tag-container">
+                              <span class="button-tag" *ngFor="let btn of getSelectedButtons(page.buttons)">
+                                <mat-icon>smart_button</mat-icon> {{ btn.name }}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Plan Transactions -->
+                      <div class="tree-sub-section" *ngIf="hasSelectedTransactions(plan.planTransactions) || hasSelectedTransactions(plan.productPlanTransactions)">
+                        <div class="sub-section-title">Transactions</div>
+                        <div *ngFor="let txn of getMergedSelectedTransactions(plan)" class="tree-item-node">
+                          <div class="tree-node-header clickable" (click)="toggleNode('txn_' + config.company.companyGuid + '_' + plan.planGuid + '_' + txn.transactionGuid)">
+                            <mat-icon class="arrow-icon" *ngIf="txn.buttons && txn.buttons.length > 0">{{ isNodeExpanded('txn_' + config.company.companyGuid + '_' + plan.planGuid + '_' + txn.transactionGuid) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                            <mat-icon class="node-icon txn-icon">account_balance_wallet</mat-icon>
+                            <span class="node-title">{{ txn.name }}</span>
+                          </div>
+                          <div class="tree-node-children buttons-list" *ngIf="txn.buttons && txn.buttons.length > 0 && isNodeExpanded('txn_' + config.company.companyGuid + '_' + plan.planGuid + '_' + txn.transactionGuid)">
+                            <div class="button-tag-container">
+                              <span class="button-tag" *ngFor="let btn of getSelectedButtons(txn.buttons)">
+                                <mat-icon>smart_button</mat-icon> {{ btn.name }}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Plan Inquiry Screens -->
+                      <div class="tree-sub-section" *ngIf="hasSelectedInquiries(plan.planInquiries)">
+                        <div class="sub-section-title">Inquiry Screens</div>
+                        <div *ngFor="let inq of getSelectedInquiries(plan.planInquiries)" class="tree-leaf-node">
+                          <mat-icon class="leaf-icon">find_in_page</mat-icon>
+                          <span>{{ inq.name }}</span>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          
+          <div *ngIf="selectedCompanies.length === 0 || !hasAnySelectedPermissions()" class="no-permissions-hint">
+            <mat-icon>info</mat-icon>
+            <span>No permissions are enabled for this security group.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tree Save bar (Back to Groups & Generate Scripts) -->
+      <div class="save-bar tree-version">
+        <button mat-button routerLink="/security-group" class="back-btn-inline">
+          <mat-icon>arrow_back</mat-icon>
+          Back to Groups
+        </button>
+        <button mat-raised-button color="primary" (click)="generateMigrationScripts()" [disabled]="isSaving" class="save-btn">
+          <mat-spinner *ngIf="isSaving" diameter="20" class="btn-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isSaving">description</mat-icon>
+          <span>{{ isSaving ? 'Generating...' : 'Generate Migration Scripts' }}</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Active company config panel -->
-    <div *ngIf="activeConfig" class="config-panel">
+    <div *ngIf="activeConfig && (mode !== 'view' || viewType === 'tabs')" class="config-panel">
       <!-- Sub-tabs: Pages, Inquiries/WS, Products, Plans -->
       <mat-tab-group [(selectedIndex)]="activeTabIndex" class="config-tabs" animationDuration="0ms">
 
@@ -116,7 +372,7 @@
                 <p class="section-desc">Toggle pages and their buttons to grant access</p>
               </div>
               <!-- Feature 1: Select All / Deselect All -->
-              <div class="bulk-actions-bar">
+              <div class="bulk-actions-bar" *ngIf="mode !== 'view'">
                 <button mat-stroked-button class="bulk-btn select" (click)="selectAllCompanyPages(true)" [disabled]="areAllCompanyPagesSelected">
                   <mat-icon>done_all</mat-icon> Select All
                 </button>
@@ -127,7 +383,7 @@
             </div>
 
             <!-- Feature 6: Bulk Button Action Panel (Company Pages) -->
-            <div class="bulk-btn-action-card">
+            <div class="bulk-btn-action-card" *ngIf="mode !== 'view'">
               <div class="bulk-btn-action-header">
                 <mat-icon class="bulk-btn-action-icon">tune</mat-icon>
                 <div>
@@ -180,13 +436,14 @@
                       [indeterminate]="isPageIndeterminate(page)"
                       (change)="togglePageAll(page, $event.checked)"
                       (click)="$event.stopPropagation()"
+                      [disabled]="mode === 'view'"
                     >
                       <span class="page-label">{{ page.name }}</span>
                     </mat-checkbox>
                   </mat-panel-title>
                 </mat-expansion-panel-header>
                 <ng-template matExpansionPanelContent>
-                  <div class="page-buttons-actions" *ngIf="page.buttons.length > 0">
+                  <div class="page-buttons-actions" *ngIf="page.buttons.length > 0 && mode !== 'view'">
                     <button mat-stroked-button class="bulk-btn select sm" (click)="toggleAllPageButtons(page, true)" [disabled]="areAllButtonsSelected(page)">Select All Buttons</button>
                     <button mat-stroked-button class="bulk-btn deselect sm" (click)="toggleAllPageButtons(page, false)" [disabled]="!areSomeButtonsSelected(page) && !areAllButtonsSelected(page)">Deselect All</button>
                     
@@ -204,6 +461,7 @@
                       [checked]="btn.selected"
                       (change)="btn.selected = $event.checked; onButtonChange(page)"
                       class="button-check"
+                      [disabled]="mode === 'view'"
                     >
                       <span class="btn-label">{{ btn.name }}</span>
                     </mat-checkbox>
@@ -230,7 +488,7 @@
               <div class="split-section">
                 <div class="section-header-row compact">
                   <h3 class="section-title">Inquiry Screens</h3>
-                  <div class="bulk-actions-bar">
+                  <div class="bulk-actions-bar" *ngIf="mode !== 'view'">
                     <button mat-stroked-button class="bulk-btn select" (click)="selectAllInquiries(true)" [disabled]="areAllInquiriesSelected">
                       <mat-icon>done_all</mat-icon> All
                     </button>
@@ -250,7 +508,7 @@
                 <div class="toggle-list">
                   <div *ngFor="let inq of filteredInquiries" class="toggle-item">
                     <span>{{ inq.name }}</span>
-                    <mat-slide-toggle [checked]="inq.selected" (change)="inq.selected = $event.checked"></mat-slide-toggle>
+                    <mat-slide-toggle [checked]="inq.selected" (change)="inq.selected = $event.checked" [disabled]="mode === 'view'"></mat-slide-toggle>
                   </div>
                   <p *ngIf="filteredInquiries.length === 0" class="empty-text">{{ inquiryFilter ? 'No matches' : 'No inquiry screens available' }}</p>
                 </div>
@@ -259,7 +517,7 @@
               <div class="split-section">
                 <div class="section-header-row compact">
                   <h3 class="section-title">Web Services</h3>
-                  <div class="bulk-actions-bar">
+                  <div class="bulk-actions-bar" *ngIf="mode !== 'view'">
                     <button mat-stroked-button class="bulk-btn select" (click)="selectAllWebServices(true)" [disabled]="areAllWebServicesSelected">
                       <mat-icon>done_all</mat-icon> All
                     </button>
@@ -279,7 +537,7 @@
                 <div class="toggle-list">
                   <div *ngFor="let ws of filteredWebServices" class="toggle-item">
                     <span>{{ ws.name }}</span>
-                    <mat-slide-toggle [checked]="ws.selected" (change)="ws.selected = $event.checked"></mat-slide-toggle>
+                    <mat-slide-toggle [checked]="ws.selected" (change)="ws.selected = $event.checked" [disabled]="mode === 'view'"></mat-slide-toggle>
                   </div>
                   <p *ngIf="filteredWebServices.length === 0" class="empty-text">{{ webServiceFilter ? 'No matches' : 'No web services available' }}</p>
                 </div>
@@ -300,7 +558,7 @@
             <h3 class="section-title">Product Configuration</h3>
 
             <!-- Feature 6: Bulk Button Action Panel (All Products) -->
-            <div class="bulk-btn-action-card">
+            <div class="bulk-btn-action-card" *ngIf="mode !== 'view'">
               <div class="bulk-btn-action-header">
                 <mat-icon class="bulk-btn-action-icon">tune</mat-icon>
                 <div>
@@ -342,7 +600,7 @@
             </div>
 
             <!-- Add Product selector -->
-            <div class="add-entity-bar">
+            <div class="add-entity-bar" *ngIf="mode !== 'view'">
               <mat-form-field appearance="outline" class="entity-select">
                 <mat-label>Add Product</mat-label>
                 <mat-select [(value)]="selectedProductToAdd">
@@ -372,13 +630,13 @@
                     <span>{{ product.name }}</span>
                   </mat-panel-title>
                   <mat-panel-description>
-                    <button mat-stroked-button color="accent" class="inherit-btn"
+                    <button *ngIf="mode !== 'view'" mat-stroked-button color="accent" class="inherit-btn"
                       (click)="openInheritDialog(activeConfig, product); $event.stopPropagation()"
                       matTooltip="Push this product's configuration to its plans">
                       <mat-icon>call_split</mat-icon>
                       Push to Plans
                     </button>
-                    <button mat-icon-button (click)="onRemoveProduct($event, activeConfig, product.productGuid)" matTooltip="Remove product" class="remove-btn">
+                    <button *ngIf="mode !== 'view'" mat-icon-button (click)="onRemoveProduct($event, activeConfig, product.productGuid)" matTooltip="Remove product" class="remove-btn">
                       <mat-icon>close</mat-icon>
                     </button>
                   </mat-panel-description>
@@ -387,7 +645,7 @@
                 <!-- Product Pages sub-accordion -->
                 <div class="section-header-row compact nested">
                   <h4 class="sub-section-title">Product Pages</h4>
-                  <div class="bulk-actions-bar">
+                  <div class="bulk-actions-bar" *ngIf="mode !== 'view'">
                     <button mat-stroked-button class="bulk-btn select sm" (click)="selectAllProductPages(product, true)">
                       <mat-icon>done_all</mat-icon> All
                     </button>
@@ -413,13 +671,14 @@
                           [indeterminate]="isPageIndeterminate(page)"
                           (change)="togglePageAll(page, $event.checked)"
                           (click)="$event.stopPropagation()"
+                          [disabled]="mode === 'view'"
                         >
                           <span class="page-label">{{ page.name }}</span>
                         </mat-checkbox>
                       </mat-panel-title>
                     </mat-expansion-panel-header>
                     <ng-template matExpansionPanelContent>
-                      <div class="page-buttons-actions" *ngIf="page.buttons.length > 0">
+                      <div class="page-buttons-actions" *ngIf="page.buttons.length > 0 && mode !== 'view'">
                         <button mat-stroked-button class="bulk-btn select sm" (click)="toggleAllPageButtons(page, true)" [disabled]="areAllButtonsSelected(page)">Select All Buttons</button>
                         <button mat-stroked-button class="bulk-btn deselect sm" (click)="toggleAllPageButtons(page, false)" [disabled]="!areSomeButtonsSelected(page) && !areAllButtonsSelected(page)">Deselect All</button>
                         
@@ -432,7 +691,7 @@
                         </mat-form-field>
                       </div>
                       <div class="button-grid">
-                        <mat-checkbox *ngFor="let btn of filterButtons(page.buttons, page.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onButtonChange(page)" class="button-check">
+                        <mat-checkbox *ngFor="let btn of filterButtons(page.buttons, page.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onButtonChange(page)" class="button-check" [disabled]="mode === 'view'">
                           <span class="btn-label">{{ btn.name }}</span>
                         </mat-checkbox>
                       </div>
@@ -444,7 +703,7 @@
                 <!-- Product Transactions sub-accordion -->
                 <div class="section-header-row compact nested" style="margin-top: 20px;">
                   <h4 class="sub-section-title">Product Transactions</h4>
-                  <div class="bulk-actions-bar">
+                  <div class="bulk-actions-bar" *ngIf="mode !== 'view'">
                     <button mat-stroked-button class="bulk-btn select sm" (click)="selectAllProductTxns(product, true)">
                       <mat-icon>done_all</mat-icon> All
                     </button>
@@ -470,13 +729,14 @@
                           [indeterminate]="isTxnIndeterminate(txn)"
                           (change)="toggleTxnAll(txn, $event.checked)"
                           (click)="$event.stopPropagation()"
+                          [disabled]="mode === 'view'"
                         >
                           <span class="page-label">{{ txn.name }}</span>
                         </mat-checkbox>
                       </mat-panel-title>
                     </mat-expansion-panel-header>
                     <ng-template matExpansionPanelContent>
-                      <div class="page-buttons-actions" *ngIf="txn.buttons.length > 0">
+                      <div class="page-buttons-actions" *ngIf="txn.buttons.length > 0 && mode !== 'view'">
                         <button mat-stroked-button class="bulk-btn select sm" (click)="toggleAllTxnButtons(txn, true)" [disabled]="areAllTxnButtonsSelected(txn)">Select All Buttons</button>
                         <button mat-stroked-button class="bulk-btn deselect sm" (click)="toggleAllTxnButtons(txn, false)" [disabled]="!areSomeTxnButtonsSelected(txn) && !areAllTxnButtonsSelected(txn)">Deselect All</button>
                         
@@ -489,7 +749,7 @@
                         </mat-form-field>
                       </div>
                       <div class="button-grid">
-                        <mat-checkbox *ngFor="let btn of filterButtons(txn.buttons, txn.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onTxnButtonChange(txn)" class="button-check">
+                        <mat-checkbox *ngFor="let btn of filterButtons(txn.buttons, txn.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onTxnButtonChange(txn)" class="button-check" [disabled]="mode === 'view'">
                           <span class="btn-label">{{ btn.name }}</span>
                         </mat-checkbox>
                       </div>
@@ -520,7 +780,7 @@
             <!-- ──── COMPARTMENT 1: PLAN PAGES (All Plans) ──── -->
             <div class="compartment-section plan-pages-section">
               <!-- Feature 6: Bulk Button Action (All Plans) -->
-              <div class="bulk-btn-action-card">
+              <div class="bulk-btn-action-card" *ngIf="mode !== 'view'">
                 <div class="bulk-btn-action-header">
                   <mat-icon class="bulk-btn-action-icon">tune</mat-icon>
                   <div>
@@ -562,7 +822,7 @@
               </div>
 
               <!-- Add Plan selector -->
-              <div class="add-entity-bar">
+              <div class="add-entity-bar" *ngIf="mode !== 'view'">
                 <mat-form-field appearance="outline" class="entity-select">
                   <mat-label>Add Direct Plan</mat-label>
                   <mat-select [(value)]="selectedPlanToAdd">
@@ -604,7 +864,7 @@
                       </span>
                     </mat-panel-title>
                     <mat-panel-description>
-                      <button *ngIf="!getProductForPlan(activeConfig, plan)" mat-icon-button (click)="onRemovePlan($event, activeConfig, plan.planGuid)" matTooltip="Remove direct plan" class="remove-btn">
+                      <button *ngIf="!getProductForPlan(activeConfig, plan) && mode !== 'view'" mat-icon-button (click)="onRemovePlan($event, activeConfig, plan.planGuid)" matTooltip="Remove direct plan" class="remove-btn">
                         <mat-icon>close</mat-icon>
                       </button>
                     </mat-panel-description>
@@ -612,7 +872,7 @@
 
                   <div class="section-header-row compact nested">
                     <h4 class="sub-section-title">Plan Pages</h4>
-                    <div class="bulk-actions-bar">
+                    <div class="bulk-actions-bar" *ngIf="mode !== 'view'">
                       <button mat-stroked-button class="bulk-btn select sm" (click)="selectAllPlanPages(plan, true)">
                         <mat-icon>done_all</mat-icon> All
                       </button>
@@ -638,13 +898,14 @@
                             [indeterminate]="isPageIndeterminate(page)"
                             (change)="togglePageAll(page, $event.checked)"
                             (click)="$event.stopPropagation()"
+                            [disabled]="mode === 'view'"
                           >
                             <span class="page-label">{{ page.name }}</span>
                           </mat-checkbox>
                         </mat-panel-title>
                       </mat-expansion-panel-header>
                       <ng-template matExpansionPanelContent>
-                        <div class="page-buttons-actions" *ngIf="page.buttons.length > 0">
+                        <div class="page-buttons-actions" *ngIf="page.buttons.length > 0 && mode !== 'view'">
                           <button mat-stroked-button class="bulk-btn select sm" (click)="toggleAllPageButtons(page, true)" [disabled]="areAllButtonsSelected(page)">Select All Buttons</button>
                           <button mat-stroked-button class="bulk-btn deselect sm" (click)="toggleAllPageButtons(page, false)" [disabled]="!areSomeButtonsSelected(page) && !areAllButtonsSelected(page)">Deselect All</button>
                           
@@ -657,7 +918,7 @@
                           </mat-form-field>
                         </div>
                         <div class="button-grid">
-                          <mat-checkbox *ngFor="let btn of filterButtons(page.buttons, page.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onButtonChange(page)" class="button-check">
+                          <mat-checkbox *ngFor="let btn of filterButtons(page.buttons, page.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onButtonChange(page)" class="button-check" [disabled]="mode === 'view'">
                             <span class="btn-label">{{ btn.name }}</span>
                           </mat-checkbox>
                         </div>
@@ -692,7 +953,7 @@
 
                   <div class="section-header-row compact nested">
                     <h4 class="sub-section-title">Plan Transactions</h4>
-                    <div class="bulk-actions-bar">
+                    <div class="bulk-actions-bar" *ngIf="mode !== 'view'">
                       <button mat-stroked-button class="bulk-btn select sm" (click)="selectAllPlanTxns(plan, true)">
                         <mat-icon>done_all</mat-icon> All
                       </button>
@@ -718,13 +979,14 @@
                             [indeterminate]="isTxnIndeterminate(txn)"
                             (change)="toggleTxnAll(txn, $event.checked)"
                             (click)="$event.stopPropagation()"
+                            [disabled]="mode === 'view'"
                           >
                             {{ txn.name }}
                           </mat-checkbox>
                         </mat-panel-title>
                       </mat-expansion-panel-header>
                       <ng-template matExpansionPanelContent>
-                        <div class="page-buttons-actions" *ngIf="txn.buttons.length > 0">
+                        <div class="page-buttons-actions" *ngIf="txn.buttons.length > 0 && mode !== 'view'">
                           <button mat-stroked-button class="bulk-btn select sm" (click)="toggleAllTxnButtons(txn, true)" [disabled]="areAllTxnButtonsSelected(txn)">Select All Buttons</button>
                           <button mat-stroked-button class="bulk-btn deselect sm" (click)="toggleAllTxnButtons(txn, false)" [disabled]="!areSomeTxnButtonsSelected(txn) && !areAllTxnButtonsSelected(txn)">Deselect All</button>
                           
@@ -737,7 +999,7 @@
                           </mat-form-field>
                         </div>
                         <div class="button-grid">
-                          <mat-checkbox *ngFor="let btn of filterButtons(txn.buttons, txn.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onTxnButtonChange(txn)" class="button-check">
+                          <mat-checkbox *ngFor="let btn of filterButtons(txn.buttons, txn.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onTxnButtonChange(txn)" class="button-check" [disabled]="mode === 'view'">
                             {{ btn.name }}
                           </mat-checkbox>
                         </div>
@@ -774,18 +1036,18 @@
                     </mat-panel-title>
                     <mat-panel-description>
                       <button mat-stroked-button color="accent" class="inherit-btn"
-                        *ngIf="getProductForPlan(activeConfig, plan)"
-                        (click)="inheritProductConfigToPlan(activeConfig, getProductForPlan(activeConfig, plan)!, plan); $event.stopPropagation()"
-                        matTooltip="Copy transaction selections from the parent product">
-                        <mat-icon>content_copy</mat-icon>
-                        Inherit Product Config
-                      </button>
-                    </mat-panel-description>
-                  </mat-expansion-panel-header>
+                      *ngIf="getProductForPlan(activeConfig, plan) && mode !== 'view'"
+                      (click)="inheritProductConfigToPlan(activeConfig, getProductForPlan(activeConfig, plan)!, plan); $event.stopPropagation()"
+                      matTooltip="Copy transaction selections from the parent product">
+                      <mat-icon>content_copy</mat-icon>
+                      Inherit Product Config
+                    </button>
+                  </mat-panel-description>
+                </mat-expansion-panel-header>
 
                   <div class="section-header-row compact nested">
                     <h4 class="sub-section-title">Product-Level Transactions</h4>
-                    <div class="bulk-actions-bar">
+                    <div class="bulk-actions-bar" *ngIf="mode !== 'view'">
                       <button mat-stroked-button class="bulk-btn select sm" (click)="selectAllProductPlanTxns(plan, true)">
                         <mat-icon>done_all</mat-icon> All
                       </button>
@@ -810,13 +1072,14 @@
                             [indeterminate]="isTxnIndeterminate(txn)"
                             (change)="toggleTxnAll(txn, $event.checked)"
                             (click)="$event.stopPropagation()"
+                            [disabled]="mode === 'view'"
                           >
                             {{ txn.name }}
                           </mat-checkbox>
                         </mat-panel-title>
                       </mat-expansion-panel-header>
                       <ng-template matExpansionPanelContent>
-                        <div class="page-buttons-actions" *ngIf="txn.buttons.length > 0">
+                        <div class="page-buttons-actions" *ngIf="txn.buttons.length > 0 && mode !== 'view'">
                           <button mat-stroked-button class="bulk-btn select sm" (click)="toggleAllTxnButtons(txn, true)" [disabled]="areAllTxnButtonsSelected(txn)">Select All Buttons</button>
                           <button mat-stroked-button class="bulk-btn deselect sm" (click)="toggleAllTxnButtons(txn, false)" [disabled]="!areSomeTxnButtonsSelected(txn) && !areAllTxnButtonsSelected(txn)">Deselect All</button>
                           
@@ -829,7 +1092,7 @@
                           </mat-form-field>
                         </div>
                         <div class="button-grid">
-                          <mat-checkbox *ngFor="let btn of filterButtons(txn.buttons, txn.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onTxnButtonChange(txn)" class="button-check">
+                          <mat-checkbox *ngFor="let btn of filterButtons(txn.buttons, txn.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onTxnButtonChange(txn)" class="button-check" [disabled]="mode === 'view'">
                             {{ btn.name }}
                           </mat-checkbox>
                         </div>
@@ -851,11 +1114,20 @@
 
       <!-- Save bar -->
       <div class="save-bar">
-        <button mat-button (click)="backToCompanySelection()" class="back-btn-inline">
+        <button mat-button routerLink="/security-group" class="back-btn-inline" *ngIf="mode === 'view'">
+          <mat-icon>arrow_back</mat-icon>
+          Back to Groups
+        </button>
+        <button mat-button (click)="backToCompanySelection()" class="back-btn-inline" *ngIf="mode !== 'view'">
           <mat-icon>arrow_back</mat-icon>
           Back to Companies
         </button>
-        <button mat-raised-button color="primary" (click)="save()" [disabled]="isSaving" class="save-btn">
+        <button mat-raised-button color="primary" (click)="generateMigrationScripts()" [disabled]="isSaving" class="save-btn" *ngIf="mode === 'view'">
+          <mat-spinner *ngIf="isSaving" diameter="20" class="btn-spinner"></mat-spinner>
+          <mat-icon *ngIf="!isSaving">description</mat-icon>
+          <span>{{ isSaving ? 'Generating...' : 'Generate Migration Scripts' }}</span>
+        </button>
+        <button mat-raised-button color="primary" (click)="save()" [disabled]="isSaving" class="save-btn" *ngIf="mode !== 'view'">
           <mat-spinner *ngIf="isSaving" diameter="20" class="btn-spinner"></mat-spinner>
           <mat-icon *ngIf="!isSaving">save</mat-icon>
           <span>{{ isSaving ? 'Saving...' : 'Save Configuration' }}</span>
@@ -885,11 +1157,11 @@
 </ng-template>
 <!-- Inline Dialog Template for SQL Scripts Review & Execution -->
 <ng-template #scriptsDialogTemplate let-data>
-  <h2 mat-dialog-title>Review Changes &amp; SQL Scripts</h2>
-  <mat-dialog-content class="scripts-dialog-content-split">
+  <h2 mat-dialog-title>{{ data.isViewMode ? 'Migration SQL Scripts' : 'Review Changes & SQL Scripts' }}</h2>
+  <mat-dialog-content class="scripts-dialog-content-split" [class.full-width]="data.isViewMode">
     
-    <!-- Left Column: Changes Review -->
-    <div class="changes-review-panel">
+    <!-- Left Column: Changes Review (Hidden in view/migration mode) -->
+    <div class="changes-review-panel" *ngIf="!data.isViewMode">
       <h3 class="panel-subtitle">
         <mat-icon class="subtitle-icon">fact_check</mat-icon> Changes Summary
       </h3>
@@ -930,7 +1202,7 @@
     <div class="sql-scripts-panel">
       <div class="scripts-header" *ngIf="data.scripts && data.scripts.length > 0">
         <h3 class="panel-subtitle">
-          <mat-icon class="subtitle-icon">terminal</mat-icon> Generated SQL Scripts
+          <mat-icon class="subtitle-icon">terminal</mat-icon> {{ data.isViewMode ? 'Complete Insertion Scripts' : 'Generated SQL Scripts' }}
         </h3>
         <button mat-stroked-button class="copy-btn" (click)="copyScriptsToClipboard(data.scripts)">
           <mat-icon class="copy-icon">{{ copied ? 'check_circle' : 'content_copy' }}</mat-icon>
@@ -949,15 +1221,39 @@
         </div>
       </ng-template>
       
-      <p class="warning-text" *ngIf="data.scripts && data.scripts.length > 0">
+      <p class="warning-text" *ngIf="!data.isViewMode && data.scripts && data.scripts.length > 0">
         <mat-icon>warning</mat-icon>
         Confirming will execute these queries directly on the database.
+      </p>
+
+      <p class="info-text" *ngIf="data.isViewMode && data.scripts && data.scripts.length > 0">
+        <mat-icon>info</mat-icon>
+        Copy this complete INSERT script. Direct execution is blocked on this environment.
       </p>
     </div>
 
   </mat-dialog-content>
   <mat-dialog-actions align="end">
-    <button mat-button mat-dialog-close>Cancel</button>
-    <button mat-raised-button color="primary" [mat-dialog-close]="true" [disabled]="!data.scripts || data.scripts.length === 0">Confirm &amp; Insert</button>
+    <button mat-button mat-dialog-close *ngIf="!data.isViewMode">Cancel</button>
+    <button mat-raised-button color="primary" [mat-dialog-close]="true" *ngIf="!data.isViewMode" [disabled]="!data.scripts || data.scripts.length === 0">Confirm &amp; Insert</button>
+    <button mat-raised-button color="primary" mat-dialog-close *ngIf="data.isViewMode">Close</button>
   </mat-dialog-actions>
+</ng-template>
+
+<!-- Status Dialog (Success/Failure) Template -->
+<ng-template #statusDialogTemplate let-data>
+  <div class="status-dialog-container" [class.success]="data.success" [class.failure]="!data.success">
+    <div class="status-icon-wrapper">
+      <mat-icon class="status-icon">{{ data.success ? 'check_circle' : 'error' }}</mat-icon>
+    </div>
+    <h2 class="status-title">{{ data.success ? 'Success!' : 'Execution Failed' }}</h2>
+    <div class="status-message">
+      <p>{{ data.message }}</p>
+    </div>
+    <div class="status-actions">
+      <button mat-raised-button [color]="data.success ? 'primary' : 'warn'" [mat-dialog-close]="true" class="status-btn">
+        {{ data.success ? 'OK' : 'Close' }}
+      </button>
+    </div>
+  </div>
 </ng-template>

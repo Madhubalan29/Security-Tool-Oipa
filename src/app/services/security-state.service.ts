@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { SecurityGroupRequestDto, SecurityGroupDto, CompanyDto } from '../models/security-group.model';
 
-export type SecurityMode = 'create' | 'modify' | 'clone';
+export type SecurityMode = 'create' | 'modify' | 'clone' | 'view';
 
 const STORAGE_KEY_MODE = 'sg_mode';
 const STORAGE_KEY_GUID = 'sg_guid';
@@ -114,7 +114,7 @@ export class SecurityStateService {
 
   private loadMode(): SecurityMode {
     const stored = sessionStorage.getItem(STORAGE_KEY_MODE);
-    return (stored === 'create' || stored === 'modify' || stored === 'clone') ? stored : 'create';
+    return (stored === 'create' || stored === 'modify' || stored === 'clone' || stored === 'view') ? stored : 'create';
   }
 
   private loadString(key: string): string {

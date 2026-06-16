@@ -15,6 +15,7 @@ const routes: Routes = [
   { path: 'security-group/create', component: CreateGroupComponent },
   { path: 'security-group/modify', component: ModifyGroupComponent },
   { path: 'security-group/clone', component: ModifyGroupComponent },
+  { path: 'security-group/view', component: ModifyGroupComponent },
   { path: 'security-group/configure', component: SecurityConfigComponent },
   { path: '**', redirectTo: '/login' }
 ];

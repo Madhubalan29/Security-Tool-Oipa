@@ -20,8 +20,9 @@ export class ModifyGroupComponent implements OnInit {
   selectedGuid = '';
   newCloneName = '';
 
-  // Determine if this is clone or modify mode
+  // Determine if this is clone, modify, or view mode
   isCloneMode = false;
+  isViewMode = false;
 
   constructor(
     private router: Router,
@@ -32,6 +33,7 @@ export class ModifyGroupComponent implements OnInit {
 
   ngOnInit(): void {
     this.isCloneMode = this.stateService.currentMode === 'clone';
+    this.isViewMode = this.stateService.currentMode === 'view';
     this.loadGroups();
   }
 
@@ -117,8 +119,9 @@ export class ModifyGroupComponent implements OnInit {
         }
       });
     } else {
-      // Modify mode
-      this.stateService.setMode('modify');
+      // Modify or View mode
+      const modeToSet = this.isViewMode ? 'view' : 'modify';
+      this.stateService.setMode(modeToSet);
       this.stateService.setGroupGuid(this.selectedGuid);
       this.stateService.setGroupName(group?.groupName || '');
       this.stateService.clearConfigState();

@@ -85,6 +85,7 @@ function guidEq(a: string | undefined | null, b: string | undefined | null): boo
 export class SecurityConfigComponent implements OnInit, OnDestroy {
   @ViewChild('inheritDialogTemplate') inheritDialogTemplate!: TemplateRef<any>;
   @ViewChild('scriptsDialogTemplate') scriptsDialogTemplate!: TemplateRef<any>;
+  @ViewChild('statusDialogTemplate') statusDialogTemplate!: TemplateRef<any>;
 
   // Master data
   allCompanies: AsCompany[] = [];
@@ -105,6 +106,8 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   activeStep = 0; // 0 = company selection, 1 = configuration
   activeCompanyIndex = 0;
   activeTabIndex = 0;
+  viewType: 'tree' | 'tabs' = 'tree';
+  expandedNodes: { [key: string]: boolean } = {};
 
   // Selection state for add-entity dropdowns
   selectedProductToAdd: AsProduct | null = null;
@@ -214,8 +217,8 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
             availablePlans: []
           }));
 
-          // If modify mode, fetch existing config
-          if (this.mode === 'modify' && this.groupGuid) {
+          // If modify or view mode, fetch existing config
+          if ((this.mode === 'modify' || this.mode === 'view') && this.groupGuid) {
             this.loadExistingConfig();
           } else if (this.mode === 'clone' && this.cloneSourceGuid) {
             this.loadCloneSourceConfig();
@@ -331,9 +334,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
             }
           });
         }
-        this.isLoading = false;
         this.updateSelectedCompanies();
-    
+        
+        if (this.mode === 'view') {
+          this.viewType = 'tree';
+          this.proceedToConfiguration();
+        }
+        this.isLoading = false;
       },
       error: (err) => {
         console.error('Failed to load existing config:', err);
@@ -1993,6 +2000,170 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ── Tree View Interaction Methods ──
+
+  toggleNode(key: string): void {
+    this.expandedNodes[key] = !this.expandedNodes[key];
+  }
+
+  isNodeExpanded(key: string, defaultExpanded = false): boolean {
+    if (this.expandedNodes[key] === undefined) {
+      return defaultExpanded;
+    }
+    return this.expandedNodes[key];
+  }
+
+  expandAll(): void {
+    this.selectedCompanies.forEach(c => {
+      const cKey = `company_${c.company.companyGuid}`;
+      this.expandedNodes[cKey] = true;
+      this.expandedNodes[`${cKey}_pages`] = true;
+      
+      c.companyPages.forEach(p => {
+        if (p.selected || p.buttons.some(b => b.selected)) {
+          this.expandedNodes[`page_${c.company.companyGuid}_${p.pageGuid}`] = true;
+        }
+      });
+
+      this.expandedNodes[`${cKey}_inqs`] = true;
+      this.expandedNodes[`${cKey}_ws`] = true;
+      this.expandedNodes[`${cKey}_prods`] = true;
+
+      c.products.forEach(p => {
+        if (p.selected) {
+          const pKey = `prod_${c.company.companyGuid}_${p.productGuid}`;
+          this.expandedNodes[pKey] = true;
+          this.expandedNodes[`${pKey}_pages`] = true;
+          p.productPages.forEach(pg => {
+            if (pg.selected || pg.buttons.some(b => b.selected)) {
+              this.expandedNodes[`page_${c.company.companyGuid}_${p.productGuid}_${pg.pageGuid}`] = true;
+            }
+          });
+          this.expandedNodes[`${pKey}_txns`] = true;
+          p.productTransactions.forEach(t => {
+            if (t.selected || t.buttons.some(b => b.selected)) {
+              this.expandedNodes[`txn_${c.company.companyGuid}_${p.productGuid}_${t.transactionGuid}`] = true;
+            }
+          });
+        }
+      });
+
+      this.expandedNodes[`${cKey}_plans`] = true;
+      c.plans.forEach(pl => {
+        if (pl.selected) {
+          const plKey = `plan_${c.company.companyGuid}_${pl.planGuid}`;
+          this.expandedNodes[plKey] = true;
+          this.expandedNodes[`${plKey}_pages`] = true;
+          pl.planPages.forEach(pg => {
+            if (pg.selected || pg.buttons.some(b => b.selected)) {
+              this.expandedNodes[`page_${c.company.companyGuid}_${pl.planGuid}_${pg.pageGuid}`] = true;
+            }
+          });
+          this.expandedNodes[`${plKey}_txns`] = true;
+          const allTxns = [...pl.planTransactions, ...(pl.productPlanTransactions || [])];
+          allTxns.forEach(t => {
+            if (t.selected || t.buttons.some(b => b.selected)) {
+              this.expandedNodes[`txn_${c.company.companyGuid}_${pl.planGuid}_${t.transactionGuid}`] = true;
+            }
+          });
+          this.expandedNodes[`${plKey}_inqs`] = true;
+        }
+      });
+    });
+  }
+
+  collapseAll(): void {
+    this.expandedNodes = {};
+  }
+
+  // ── Selected Config Helper Queries for Tree Rendering ──
+
+  hasSelectedPages(pages: CompanyPageDto[] | undefined): boolean {
+    return !!pages && pages.some(p => p.selected || (p.buttons && p.buttons.some(b => b.selected)));
+  }
+
+  getSelectedPages(pages: CompanyPageDto[] | undefined): CompanyPageDto[] {
+    if (!pages) return [];
+    return pages.filter(p => p.selected || (p.buttons && p.buttons.some(b => b.selected)));
+  }
+
+  getSelectedButtons(buttons: ButtonDto[] | undefined): ButtonDto[] {
+    if (!buttons) return [];
+    return buttons.filter(b => b.selected);
+  }
+
+  hasSelectedInquiries(inquiries: any[] | undefined): boolean {
+    return !!inquiries && inquiries.some(i => i.selected);
+  }
+
+  getSelectedInquiries(inquiries: any[] | undefined): any[] {
+    if (!inquiries) return [];
+    return inquiries.filter(i => i.selected);
+  }
+
+  hasSelectedWebServices(webServices: any[] | undefined): boolean {
+    return !!webServices && webServices.some(w => w.selected);
+  }
+
+  getSelectedWebServices(webServices: any[] | undefined): any[] {
+    if (!webServices) return [];
+    return webServices.filter(w => w.selected);
+  }
+
+  hasSelectedProducts(products: ProductConfig[] | undefined): boolean {
+    return !!products && products.some(p => p.selected);
+  }
+
+  getSelectedProducts(products: ProductConfig[] | undefined): ProductConfig[] {
+    if (!products) return [];
+    return products.filter(p => p.selected);
+  }
+
+  hasSelectedTransactions(txns: any[] | undefined): boolean {
+    return !!txns && txns.some(t => t.selected || (t.buttons && t.buttons.some((b: any) => b.selected)));
+  }
+
+  getSelectedTransactions(txns: any[] | undefined): any[] {
+    if (!txns) return [];
+    return txns.filter(t => t.selected || (t.buttons && t.buttons.some((b: any) => b.selected)));
+  }
+
+  getMergedSelectedTransactions(plan: PlanConfig): any[] {
+    const txns = [...plan.planTransactions, ...(plan.productPlanTransactions || [])];
+    return this.getSelectedTransactions(txns);
+  }
+
+  hasSelectedPlans(plans: PlanConfig[] | undefined): boolean {
+    return !!plans && plans.some(p => p.selected);
+  }
+
+  getSelectedPlans(plans: PlanConfig[] | undefined): PlanConfig[] {
+    if (!plans) return [];
+    return plans.filter(p => p.selected);
+  }
+
+  hasAnySelectedPermissions(): boolean {
+    return this.selectedCompanies.some(config => 
+      this.hasSelectedPages(config.companyPages) ||
+      this.hasSelectedInquiries(config.companyInquiries) ||
+      this.hasSelectedWebServices(config.companyWebServices) ||
+      this.hasSelectedProducts(config.products) ||
+      this.hasSelectedPlans(config.plans)
+    );
+  }
+
+  openStatusDialog(success: boolean, message: string, callback?: () => void): void {
+    const dialogRef = this.dialog.open(this.statusDialogTemplate, {
+      width: '450px',
+      disableClose: true,
+      data: { success, message }
+    });
+
+    dialogRef.afterClosed().subscribe(() => {
+      if (callback) callback();
+    });
+  }
+
   save(): void {
     this.isSaving = true;
     const payload = this.buildPayload();
@@ -2028,13 +2199,26 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
                 this.isSaving = false;
                 // Clear persisted config state after successful save
                 this.stateService.clearConfigState();
-                // Navigate back
-                this.router.navigate(['/security-group']);
+                
+                this.openStatusDialog(
+                  true,
+                  'The SQL scripts have been successfully executed, and the security group configuration is updated in the database.',
+                  () => {
+                    // Navigate to view screen (reloads page in view mode)
+                    this.stateService.setMode('view');
+                    this.stateService.setGroupGuid(this.groupGuid);
+                    this.stateService.setGroupName(this.groupName);
+                    this.mode = 'view';
+                    this.restoredFromStorage = false;
+                    this.ngOnInit();
+                  }
+                );
               },
               error: (err) => {
                 this.isSaving = false;
                 console.error('Execution error:', err);
-                alert('An error occurred while executing the SQL scripts. Please check the logs.');
+                const errMsg = err?.error?.message || 'An error occurred while executing the SQL scripts. Please check the logs.';
+                this.openStatusDialog(false, errMsg);
               }
             });
           }
@@ -2043,6 +2227,41 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.isSaving = false;
         console.error('Save error:', err);
+        const errMsg = err?.error?.message || 'Failed to generate save scripts. Please check the logs.';
+        this.openStatusDialog(false, errMsg);
+      }
+    });
+  }
+
+  generateMigrationScripts(): void {
+    this.isSaving = true;
+    const payload = this.buildPayload();
+    
+    // Clear the securityGroupGuid to treat it as a brand new group,
+    // which generates complete INSERT statements for the entire config instead of deltas.
+    payload.securityGroup.securityGroupGuid = undefined;
+
+    this.securityGroupService.saveGroupConfig(payload).subscribe({
+      next: (result) => {
+        this.isSaving = false;
+        console.log('Migration scripts generation successful:', result);
+
+        // Open the dialog to display generated migration scripts (with no diffs and execute disabled)
+        const dialogRef = this.dialog.open(this.scriptsDialogTemplate, {
+          width: '950px',
+          maxHeight: '90vh',
+          data: {
+            isViewMode: true,
+            scripts: result.scripts || [],
+            formattedScript: (result.scripts || []).map((s: string) => this.formatSql(s)).join('\n\n')
+          }
+        });
+      },
+      error: (err) => {
+        this.isSaving = false;
+        console.error('Migration script generation error:', err);
+        const errMsg = err?.error?.message || 'Failed to generate migration scripts. Please check the logs.';
+        this.openStatusDialog(false, errMsg);
       }
     });
   }
