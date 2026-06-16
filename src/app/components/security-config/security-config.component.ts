@@ -36,6 +36,9 @@ interface CompanyConfig {
   plans: PlanConfig[];
   availableProducts: AsProduct[];
   availablePlans: AsPlan[];
+  pageFilter?: string;
+  inquiryFilter?: string;
+  webServiceFilter?: string;
 }
 
 interface ProductConfig {
@@ -44,6 +47,8 @@ interface ProductConfig {
   selected: boolean;
   productPages: CompanyPageDto[];
   productTransactions: (ProductTransactionDto & { name?: string })[];
+  pageFilter?: string;
+  txnFilter?: string;
 }
 
 interface PlanConfig {
@@ -54,7 +59,17 @@ interface PlanConfig {
   planTransactions: (PlanTransactionDto & { name?: string })[];
   productPlanTransactions?: (PlanTransactionDto & { name?: string })[];
   planInquiries: (CompanyInquiryDto & { name?: string })[];
+  pageFilter?: string;
+  txnFilter?: string;
 }
+
+export interface HierarchicalDiffNode {
+  name: string;
+  type?: 'add' | 'remove' | 'mixed';
+  icon?: string;
+  children?: HierarchicalDiffNode[];
+}
+
 
 /** Case-insensitive GUID comparison */
 function guidEq(a: string | undefined | null, b: string | undefined | null): boolean {
@@ -133,6 +148,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   // ── Feature 3: Clone source ──
   cloneSourceGuid = '';
+  copied = false;
 
   constructor(
     private router: Router,
@@ -1111,6 +1127,872 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     };
   }
 
+  getCompanyName(companyGuid: string): string {
+    return this.allCompanies.find(c => guidEq(c.companyGuid, companyGuid))?.companyName || 'Unknown Company';
+  }
+
+  getPageName(pageGuid: string): string {
+    return this.allPages.find(p => guidEq(p.pageGuid, pageGuid))?.pageName || 'Unknown Page';
+  }
+
+  getButtonName(buttonGuid: string): string {
+    return this.allButtons.find(b => guidEq(b.buttonGuid, buttonGuid))?.buttonName || 'Unknown Button';
+  }
+
+  getWebServiceName(webServiceGuid: string): string {
+    return this.allWebServices.find(w => guidEq(w.webServiceGuid, webServiceGuid))?.webServiceName || 'Unknown Web Service';
+  }
+
+  getInquiryName(companyGuid: string, screenGuid: string): string {
+    const config = this.companyConfigs.find(c => guidEq(c.company.companyGuid, companyGuid));
+    return config?.companyInquiries.find(i => guidEq(i.inquiryScreenNameGuid, screenGuid))?.name || 'Unknown Inquiry';
+  }
+
+  getProductName(companyGuid: string, productGuid: string): string {
+    const config = this.companyConfigs.find(c => guidEq(c.company.companyGuid, companyGuid));
+    return config?.availableProducts.find(p => guidEq(p.productGuid, productGuid))?.productName || 
+           config?.products.find(p => guidEq(p.productGuid, productGuid))?.name || 'Unknown Product';
+  }
+
+  getPlanName(companyGuid: string, planGuid: string): string {
+    const config = this.companyConfigs.find(c => guidEq(c.company.companyGuid, companyGuid));
+    return config?.availablePlans.find(p => guidEq(p.planGuid, planGuid))?.planName || 
+           config?.plans.find(p => guidEq(p.planGuid, planGuid))?.name || 'Unknown Plan';
+  }
+
+  getTransactionName(companyGuid: string, txnGuid: string): string {
+    const config = this.companyConfigs.find(c => guidEq(c.company.companyGuid, companyGuid));
+    for (const prod of config?.products || []) {
+      const t = prod.productTransactions.find(x => guidEq(x.transactionGuid, txnGuid));
+      if (t) return t.name || 'Unknown Transaction';
+    }
+    for (const plan of config?.plans || []) {
+      const t = plan.planTransactions.find(x => guidEq(x.transactionGuid, txnGuid));
+      if (t) return t.name || 'Unknown Transaction';
+      const pt = plan.productPlanTransactions?.find(x => guidEq(x.transactionGuid, txnGuid));
+      if (pt) return pt.name || 'Unknown Transaction';
+    }
+    return 'Unknown Transaction';
+  }
+
+  formatSql(sql: string): string {
+    if (!sql) return '';
+    return sql
+      .split(';')
+      .map(stmt => {
+        const trimmed = stmt.trim();
+        if (!trimmed) return '';
+        return trimmed
+          .replace(/\s+/g, ' ')
+          .replace(/\b(VALUES|SET|WHERE|AND|OR)\b/g, '\n$1')
+          .replace(/\(([^)]+)\)/g, (match: string, content: string) => {
+            if (content.length > 50) {
+              return '(\n  ' + content.split(',').map((s: string) => s.trim()).join(',\n  ') + '\n)';
+            }
+            return match;
+          });
+      })
+      .filter(Boolean)
+      .join(';\n\n') + ';';
+  }
+
+  copyScriptsToClipboard(scripts: string[]): void {
+    if (!scripts || scripts.length === 0) return;
+    navigator.clipboard.writeText(scripts.join('\n')).then(() => {
+      this.copied = true;
+      setTimeout(() => this.copied = false, 2000);
+    });
+  }
+
+  comparePayloads(existingPayload: SecurityGroupRequestDto | null, current: SecurityGroupRequestDto): HierarchicalDiffNode[] {
+    const companyNodes: HierarchicalDiffNode[] = [];
+    const existingCompanies = existingPayload?.securityGroup?.companies || [];
+    const currentCompanies = current.securityGroup.companies || [];
+
+    currentCompanies.forEach(currCompany => {
+      const companyName = this.getCompanyName(currCompany.companyGuid);
+      const existCompany = existingCompanies.find(c => guidEq(c.companyGuid, currCompany.companyGuid));
+
+      if (!existCompany) {
+        const companyNode: HierarchicalDiffNode = {
+          name: companyName,
+          type: 'add',
+          icon: 'business',
+          children: []
+        };
+        this.addCompanyDiffNodes(companyNode.children!, currCompany, currCompany.companyGuid);
+        companyNodes.push(companyNode);
+        return;
+      }
+
+      const categoryNodes: HierarchicalDiffNode[] = [];
+
+      // 1. Company Pages
+      const pageNodes: HierarchicalDiffNode[] = [];
+      const currPages = currCompany.companyPages || [];
+      const existPages = existCompany.companyPages || [];
+
+      currPages.forEach(currPage => {
+        const pageName = this.getPageName(currPage.pageGuid);
+        const existPage = existPages.find(p => guidEq(p.pageGuid, currPage.pageGuid));
+
+        if (!existPage) {
+          const pNode: HierarchicalDiffNode = {
+            name: pageName,
+            type: 'add',
+            icon: 'description',
+            children: []
+          };
+          currPage.buttons?.forEach(b => {
+            pNode.children!.push({
+              name: this.getButtonName(b.buttonGuid),
+              type: 'add',
+              icon: 'radio_button_checked'
+            });
+          });
+          pageNodes.push(pNode);
+        } else {
+          const buttonNodes: HierarchicalDiffNode[] = [];
+          const currButtons = currPage.buttons || [];
+          const existButtons = existPage.buttons || [];
+
+          currButtons.forEach(cb => {
+            if (!existButtons.some(eb => guidEq(eb.buttonGuid, cb.buttonGuid))) {
+              buttonNodes.push({
+                name: this.getButtonName(cb.buttonGuid),
+                type: 'add',
+                icon: 'radio_button_checked'
+              });
+            }
+          });
+          existButtons.forEach(eb => {
+            if (!currButtons.some(cb => guidEq(cb.buttonGuid, eb.buttonGuid))) {
+              buttonNodes.push({
+                name: this.getButtonName(eb.buttonGuid),
+                type: 'remove',
+                icon: 'radio_button_checked'
+              });
+            }
+          });
+
+          if (buttonNodes.length > 0) {
+            pageNodes.push({
+              name: pageName,
+              type: 'mixed',
+              icon: 'description',
+              children: buttonNodes
+            });
+          }
+        }
+      });
+
+      existPages.forEach(existPage => {
+        if (!currPages.some(cp => guidEq(cp.pageGuid, existPage.pageGuid))) {
+          pageNodes.push({
+            name: this.getPageName(existPage.pageGuid),
+            type: 'remove',
+            icon: 'description'
+          });
+        }
+      });
+
+      if (pageNodes.length > 0) {
+        categoryNodes.push({
+          name: 'Company Pages',
+          icon: 'description',
+          children: pageNodes
+        });
+      }
+
+      // 2. Company Inquiries
+      const inquiryNodes: HierarchicalDiffNode[] = [];
+      const currInqs = currCompany.companyInquiries || [];
+      const existInqs = existCompany.companyInquiries || [];
+
+      currInqs.forEach(ci => {
+        if (!existInqs.some(ei => guidEq(ei.inquiryScreenNameGuid, ci.inquiryScreenNameGuid))) {
+          inquiryNodes.push({
+            name: this.getInquiryName(currCompany.companyGuid, ci.inquiryScreenNameGuid),
+            type: 'add',
+            icon: 'search'
+          });
+        }
+      });
+      existInqs.forEach(ei => {
+        if (!currInqs.some(ci => guidEq(ci.inquiryScreenNameGuid, ei.inquiryScreenNameGuid))) {
+          inquiryNodes.push({
+            name: this.getInquiryName(currCompany.companyGuid, ei.inquiryScreenNameGuid),
+            type: 'remove',
+            icon: 'search'
+          });
+        }
+      });
+
+      if (inquiryNodes.length > 0) {
+        categoryNodes.push({
+          name: 'Inquiry Screens',
+          icon: 'web',
+          children: inquiryNodes
+        });
+      }
+
+      // 3. Company Web Services
+      const wsNodes: HierarchicalDiffNode[] = [];
+      const currWS = currCompany.companyWebServices || [];
+      const existWS = existCompany.companyWebServices || [];
+
+      currWS.forEach(cw => {
+        if (!existWS.some(ew => guidEq(ew.webServiceGuid, cw.webServiceGuid))) {
+          wsNodes.push({
+            name: this.getWebServiceName(cw.webServiceGuid),
+            type: 'add',
+            icon: 'settings_ethernet'
+          });
+        }
+      });
+      existWS.forEach(ew => {
+        if (!currWS.some(cw => guidEq(cw.webServiceGuid, ew.webServiceGuid))) {
+          wsNodes.push({
+            name: this.getWebServiceName(ew.webServiceGuid),
+            type: 'remove',
+            icon: 'settings_ethernet'
+          });
+        }
+      });
+
+      if (wsNodes.length > 0) {
+        categoryNodes.push({
+          name: 'Web Services',
+          icon: 'settings_ethernet',
+          children: wsNodes
+        });
+      }
+
+      // 4. Products
+      const productCategoryNodes: HierarchicalDiffNode[] = [];
+      const currProds = currCompany.products || [];
+      const existProds = existCompany.products || [];
+
+      currProds.forEach(cp => {
+        const prodName = this.getProductName(currCompany.companyGuid, cp.productGuid);
+        const ep = existProds.find(p => guidEq(p.productGuid, cp.productGuid));
+
+        if (!ep) {
+          const prodNode: HierarchicalDiffNode = {
+            name: prodName,
+            type: 'add',
+            icon: 'inventory_2',
+            children: []
+          };
+          this.addProductDiffNodes(prodNode.children!, cp, prodName, currCompany.companyGuid);
+          productCategoryNodes.push(prodNode);
+        } else {
+          const prodChildren: HierarchicalDiffNode[] = [];
+          this.compareProductDetails(prodChildren, ep, cp, prodName, currCompany.companyGuid);
+          if (prodChildren.length > 0) {
+            productCategoryNodes.push({
+              name: prodName,
+              type: 'mixed',
+              icon: 'inventory_2',
+              children: prodChildren
+            });
+          }
+        }
+      });
+
+      existProds.forEach(ep => {
+        if (!currProds.some(cp => guidEq(cp.productGuid, ep.productGuid))) {
+          productCategoryNodes.push({
+            name: this.getProductName(currCompany.companyGuid, ep.productGuid),
+            type: 'remove',
+            icon: 'inventory_2'
+          });
+        }
+      });
+
+      if (productCategoryNodes.length > 0) {
+        categoryNodes.push({
+          name: 'Products',
+          icon: 'inventory_2',
+          children: productCategoryNodes
+        });
+      }
+
+      // 5. Plans
+      const planCategoryNodes: HierarchicalDiffNode[] = [];
+      const currPlans = currCompany.plans || [];
+      const existPlans = existCompany.plans || [];
+
+      currPlans.forEach(cp => {
+        const planName = this.getPlanName(currCompany.companyGuid, cp.planGuid);
+        const ep = existPlans.find(p => guidEq(p.planGuid, cp.planGuid));
+
+        if (!ep) {
+          const planNode: HierarchicalDiffNode = {
+            name: planName,
+            type: 'add',
+            icon: 'assignment',
+            children: []
+          };
+          this.addPlanDiffNodes(planNode.children!, cp, planName, currCompany.companyGuid);
+          planCategoryNodes.push(planNode);
+        } else {
+          const planChildren: HierarchicalDiffNode[] = [];
+          this.comparePlanDetails(planChildren, ep, cp, planName, currCompany.companyGuid);
+          if (planChildren.length > 0) {
+            planCategoryNodes.push({
+              name: planName,
+              type: 'mixed',
+              icon: 'assignment',
+              children: planChildren
+            });
+          }
+        }
+      });
+
+      existPlans.forEach(ep => {
+        if (!currPlans.some(cp => guidEq(cp.planGuid, ep.planGuid))) {
+          planCategoryNodes.push({
+            name: this.getPlanName(currCompany.companyGuid, ep.planGuid),
+            type: 'remove',
+            icon: 'assignment'
+          });
+        }
+      });
+
+      if (planCategoryNodes.length > 0) {
+        categoryNodes.push({
+          name: 'Plans',
+          icon: 'assignment',
+          children: planCategoryNodes
+        });
+      }
+
+      if (categoryNodes.length > 0) {
+        companyNodes.push({
+          name: companyName,
+          icon: 'business',
+          children: categoryNodes
+        });
+      }
+    });
+
+    existingCompanies.forEach(existCompany => {
+      if (!currentCompanies.some(c => guidEq(c.companyGuid, existCompany.companyGuid))) {
+        companyNodes.push({
+          name: this.getCompanyName(existCompany.companyGuid),
+          type: 'remove',
+          icon: 'business'
+        });
+      }
+    });
+
+    return companyNodes;
+  }
+
+  private addCompanyDiffNodes(nodes: HierarchicalDiffNode[], company: CompanyDto, companyGuid: string): void {
+    const pageNodes: HierarchicalDiffNode[] = [];
+    company.companyPages?.forEach(p => {
+      const pageName = this.getPageName(p.pageGuid);
+      const pNode: HierarchicalDiffNode = {
+        name: pageName,
+        type: 'add',
+        icon: 'description',
+        children: []
+      };
+      p.buttons?.forEach(b => {
+        pNode.children!.push({
+          name: this.getButtonName(b.buttonGuid),
+          type: 'add',
+          icon: 'radio_button_checked'
+        });
+      });
+      pageNodes.push(pNode);
+    });
+    if (pageNodes.length > 0) {
+      nodes.push({ name: 'Company Pages', icon: 'description', children: pageNodes });
+    }
+
+    const inquiryNodes: HierarchicalDiffNode[] = [];
+    company.companyInquiries?.forEach(i => {
+      inquiryNodes.push({
+        name: this.getInquiryName(companyGuid, i.inquiryScreenNameGuid),
+        type: 'add',
+        icon: 'search'
+      });
+    });
+    if (inquiryNodes.length > 0) {
+      nodes.push({ name: 'Inquiry Screens', icon: 'web', children: inquiryNodes });
+    }
+
+    const wsNodes: HierarchicalDiffNode[] = [];
+    company.companyWebServices?.forEach(ws => {
+      wsNodes.push({
+        name: this.getWebServiceName(ws.webServiceGuid),
+        type: 'add',
+        icon: 'settings_ethernet'
+      });
+    });
+    if (wsNodes.length > 0) {
+      nodes.push({ name: 'Web Services', icon: 'settings_ethernet', children: wsNodes });
+    }
+
+    const prodNodes: HierarchicalDiffNode[] = [];
+    company.products?.forEach(p => {
+      const prodName = this.getProductName(companyGuid, p.productGuid);
+      const pNode: HierarchicalDiffNode = {
+        name: prodName,
+        type: 'add',
+        icon: 'inventory_2',
+        children: []
+      };
+      this.addProductDiffNodes(pNode.children!, p, prodName, companyGuid);
+      prodNodes.push(pNode);
+    });
+    if (prodNodes.length > 0) {
+      nodes.push({ name: 'Products', icon: 'inventory_2', children: prodNodes });
+    }
+
+    const planNodes: HierarchicalDiffNode[] = [];
+    company.plans?.forEach(p => {
+      const planName = this.getPlanName(companyGuid, p.planGuid);
+      const pNode: HierarchicalDiffNode = {
+        name: planName,
+        type: 'add',
+        icon: 'assignment',
+        children: []
+      };
+      this.addPlanDiffNodes(pNode.children!, p, planName, companyGuid);
+      planNodes.push(pNode);
+    });
+    if (planNodes.length > 0) {
+      nodes.push({ name: 'Plans', icon: 'assignment', children: planNodes });
+    }
+  }
+
+  private addProductDiffNodes(nodes: HierarchicalDiffNode[], prod: ProductDto, prodName: string, companyGuid: string): void {
+    const pageNodes: HierarchicalDiffNode[] = [];
+    prod.productPages?.forEach(p => {
+      const pageName = this.getPageName(p.pageGuid);
+      const pNode: HierarchicalDiffNode = {
+        name: pageName,
+        type: 'add',
+        icon: 'description',
+        children: []
+      };
+      p.buttons?.forEach(b => {
+        pNode.children!.push({
+          name: this.getButtonName(b.buttonGuid),
+          type: 'add',
+          icon: 'radio_button_checked'
+        });
+      });
+      pageNodes.push(pNode);
+    });
+    if (pageNodes.length > 0) {
+      nodes.push({ name: 'Product Pages', icon: 'description', children: pageNodes });
+    }
+
+    const txnNodes: HierarchicalDiffNode[] = [];
+    prod.productTransactions?.forEach(t => {
+      const txnName = this.getTransactionName(companyGuid, t.transactionGuid);
+      const tNode: HierarchicalDiffNode = {
+        name: txnName,
+        type: 'add',
+        icon: 'sync',
+        children: []
+      };
+      t.buttons?.forEach(b => {
+        tNode.children!.push({
+          name: this.getButtonName(b.buttonGuid),
+          type: 'add',
+          icon: 'radio_button_checked'
+        });
+      });
+      txnNodes.push(tNode);
+    });
+    if (txnNodes.length > 0) {
+      nodes.push({ name: 'Product Transactions', icon: 'sync', children: txnNodes });
+    }
+  }
+
+  private addPlanDiffNodes(nodes: HierarchicalDiffNode[], plan: PlanDto, planName: string, companyGuid: string): void {
+    const pageNodes: HierarchicalDiffNode[] = [];
+    plan.planPages?.forEach(p => {
+      const pageName = this.getPageName(p.pageGuid);
+      const pNode: HierarchicalDiffNode = {
+        name: pageName,
+        type: 'add',
+        icon: 'description',
+        children: []
+      };
+      p.buttons?.forEach(b => {
+        pNode.children!.push({
+          name: this.getButtonName(b.buttonGuid),
+          type: 'add',
+          icon: 'radio_button_checked'
+        });
+      });
+      pageNodes.push(pNode);
+    });
+    if (pageNodes.length > 0) {
+      nodes.push({ name: 'Plan Pages', icon: 'description', children: pageNodes });
+    }
+
+    const txnNodes: HierarchicalDiffNode[] = [];
+    plan.planTransactions?.forEach(t => {
+      const txnName = this.getTransactionName(companyGuid, t.transactionGuid);
+      const tNode: HierarchicalDiffNode = {
+        name: txnName,
+        type: 'add',
+        icon: 'sync',
+        children: []
+      };
+      t.buttons?.forEach(b => {
+        tNode.children!.push({
+          name: this.getButtonName(b.buttonGuid),
+          type: 'add',
+          icon: 'radio_button_checked'
+        });
+      });
+      txnNodes.push(tNode);
+    });
+    if (txnNodes.length > 0) {
+      nodes.push({ name: 'Plan Transactions', icon: 'sync', children: txnNodes });
+    }
+
+    const inquiryNodes: HierarchicalDiffNode[] = [];
+    plan.planInquiries?.forEach(i => {
+      inquiryNodes.push({
+        name: this.getInquiryName(companyGuid, i.inquiryScreenNameGuid),
+        type: 'add',
+        icon: 'search'
+      });
+    });
+    if (inquiryNodes.length > 0) {
+      nodes.push({ name: 'Plan Inquiry Screens', icon: 'web', children: inquiryNodes });
+    }
+  }
+
+  private compareProductDetails(nodes: HierarchicalDiffNode[], exist: ProductDto, curr: ProductDto, prodName: string, companyGuid: string): void {
+    const pageNodes: HierarchicalDiffNode[] = [];
+    const currPages = curr.productPages || [];
+    const existPages = exist.productPages || [];
+
+    currPages.forEach(cp => {
+      const pageName = this.getPageName(cp.pageGuid);
+      const ep = existPages.find(p => guidEq(p.pageGuid, cp.pageGuid));
+
+      if (!ep) {
+        const pNode: HierarchicalDiffNode = {
+          name: pageName,
+          type: 'add',
+          icon: 'description',
+          children: []
+        };
+        cp.buttons?.forEach(b => {
+          pNode.children!.push({
+            name: this.getButtonName(b.buttonGuid),
+            type: 'add',
+            icon: 'radio_button_checked'
+          });
+        });
+        pageNodes.push(pNode);
+      } else {
+        const buttonNodes: HierarchicalDiffNode[] = [];
+        const currBtns = cp.buttons || [];
+        const existBtns = ep.buttons || [];
+
+        currBtns.forEach(cb => {
+          if (!existBtns.some(eb => guidEq(eb.buttonGuid, cb.buttonGuid))) {
+            buttonNodes.push({
+              name: this.getButtonName(cb.buttonGuid),
+              type: 'add',
+              icon: 'radio_button_checked'
+            });
+          }
+        });
+        existBtns.forEach(eb => {
+          if (!currBtns.some(cb => guidEq(cb.buttonGuid, eb.buttonGuid))) {
+            buttonNodes.push({
+              name: this.getButtonName(eb.buttonGuid),
+              type: 'remove',
+              icon: 'radio_button_checked'
+            });
+          }
+        });
+
+        if (buttonNodes.length > 0) {
+          pageNodes.push({
+            name: pageName,
+            type: 'mixed',
+            icon: 'description',
+            children: buttonNodes
+          });
+        }
+      }
+    });
+
+    existPages.forEach(ep => {
+      if (!currPages.some(cp => guidEq(cp.pageGuid, ep.pageGuid))) {
+        pageNodes.push({
+          name: this.getPageName(ep.pageGuid),
+          type: 'remove',
+          icon: 'description'
+        });
+      }
+    });
+
+    if (pageNodes.length > 0) {
+      nodes.push({ name: 'Product Pages', icon: 'description', children: pageNodes });
+    }
+
+    const txnNodes: HierarchicalDiffNode[] = [];
+    const currTxns = curr.productTransactions || [];
+    const existTxns = exist.productTransactions || [];
+
+    currTxns.forEach(ct => {
+      const txnName = this.getTransactionName(companyGuid, ct.transactionGuid);
+      const et = existTxns.find(t => guidEq(t.transactionGuid, ct.transactionGuid));
+
+      if (!et) {
+        const tNode: HierarchicalDiffNode = {
+          name: txnName,
+          type: 'add',
+          icon: 'sync',
+          children: []
+        };
+        ct.buttons?.forEach(b => {
+          tNode.children!.push({
+            name: this.getButtonName(b.buttonGuid),
+            type: 'add',
+            icon: 'radio_button_checked'
+          });
+        });
+        txnNodes.push(tNode);
+      } else {
+        const buttonNodes: HierarchicalDiffNode[] = [];
+        const currBtns = ct.buttons || [];
+        const existBtns = et.buttons || [];
+
+        currBtns.forEach(cb => {
+          if (!existBtns.some(eb => guidEq(eb.buttonGuid, cb.buttonGuid))) {
+            buttonNodes.push({
+              name: this.getButtonName(cb.buttonGuid),
+              type: 'add',
+              icon: 'radio_button_checked'
+            });
+          }
+        });
+        existBtns.forEach(eb => {
+          if (!currBtns.some(cb => guidEq(cb.buttonGuid, eb.buttonGuid))) {
+            buttonNodes.push({
+              name: this.getButtonName(eb.buttonGuid),
+              type: 'remove',
+              icon: 'radio_button_checked'
+            });
+          }
+        });
+
+        if (buttonNodes.length > 0) {
+          txnNodes.push({
+            name: txnName,
+            type: 'mixed',
+            icon: 'sync',
+            children: buttonNodes
+          });
+        }
+      }
+    });
+
+    existTxns.forEach(et => {
+      if (!currTxns.some(ct => guidEq(ct.transactionGuid, et.transactionGuid))) {
+        txnNodes.push({
+          name: this.getTransactionName(companyGuid, et.transactionGuid),
+          type: 'remove',
+          icon: 'sync'
+        });
+      }
+    });
+
+    if (txnNodes.length > 0) {
+      nodes.push({ name: 'Product Transactions', icon: 'sync', children: txnNodes });
+    }
+  }
+
+  private comparePlanDetails(nodes: HierarchicalDiffNode[], exist: PlanDto, curr: PlanDto, planName: string, companyGuid: string): void {
+    const pageNodes: HierarchicalDiffNode[] = [];
+    const currPages = curr.planPages || [];
+    const existPages = exist.planPages || [];
+
+    currPages.forEach(cp => {
+      const pageName = this.getPageName(cp.pageGuid);
+      const ep = existPages.find(p => guidEq(p.pageGuid, cp.pageGuid));
+
+      if (!ep) {
+        const pNode: HierarchicalDiffNode = {
+          name: pageName,
+          type: 'add',
+          icon: 'description',
+          children: []
+        };
+        cp.buttons?.forEach(b => {
+          pNode.children!.push({
+            name: this.getButtonName(b.buttonGuid),
+            type: 'add',
+            icon: 'radio_button_checked'
+          });
+        });
+        pageNodes.push(pNode);
+      } else {
+        const buttonNodes: HierarchicalDiffNode[] = [];
+        const currBtns = cp.buttons || [];
+        const existBtns = ep.buttons || [];
+
+        currBtns.forEach(cb => {
+          if (!existBtns.some(eb => guidEq(eb.buttonGuid, cb.buttonGuid))) {
+            buttonNodes.push({
+              name: this.getButtonName(cb.buttonGuid),
+              type: 'add',
+              icon: 'radio_button_checked'
+            });
+          }
+        });
+        existBtns.forEach(eb => {
+          if (!currBtns.some(cb => guidEq(cb.buttonGuid, eb.buttonGuid))) {
+            buttonNodes.push({
+              name: this.getButtonName(eb.buttonGuid),
+              type: 'remove',
+              icon: 'radio_button_checked'
+            });
+          }
+        });
+
+        if (buttonNodes.length > 0) {
+          pageNodes.push({
+            name: pageName,
+            type: 'mixed',
+            icon: 'description',
+            children: buttonNodes
+          });
+        }
+      }
+    });
+
+    existPages.forEach(ep => {
+      if (!currPages.some(cp => guidEq(cp.pageGuid, ep.pageGuid))) {
+        pageNodes.push({
+          name: this.getPageName(ep.pageGuid),
+          type: 'remove',
+          icon: 'description'
+        });
+      }
+    });
+
+    if (pageNodes.length > 0) {
+      nodes.push({ name: 'Plan Pages', icon: 'description', children: pageNodes });
+    }
+
+    const txnNodes: HierarchicalDiffNode[] = [];
+    const currTxns = curr.planTransactions || [];
+    const existTxns = exist.planTransactions || [];
+
+    currTxns.forEach(ct => {
+      const txnName = this.getTransactionName(companyGuid, ct.transactionGuid);
+      const et = existTxns.find(t => guidEq(t.transactionGuid, ct.transactionGuid));
+
+      if (!et) {
+        const tNode: HierarchicalDiffNode = {
+          name: txnName,
+          type: 'add',
+          icon: 'sync',
+          children: []
+        };
+        ct.buttons?.forEach(b => {
+          tNode.children!.push({
+            name: this.getButtonName(b.buttonGuid),
+            type: 'add',
+            icon: 'radio_button_checked'
+          });
+        });
+        txnNodes.push(tNode);
+      } else {
+        const buttonNodes: HierarchicalDiffNode[] = [];
+        const currBtns = ct.buttons || [];
+        const existBtns = et.buttons || [];
+
+        currBtns.forEach(cb => {
+          if (!existBtns.some(eb => guidEq(eb.buttonGuid, cb.buttonGuid))) {
+            buttonNodes.push({
+              name: this.getButtonName(cb.buttonGuid),
+              type: 'add',
+              icon: 'radio_button_checked'
+            });
+          }
+        });
+        existBtns.forEach(eb => {
+          if (!currBtns.some(cb => guidEq(cb.buttonGuid, eb.buttonGuid))) {
+            buttonNodes.push({
+              name: this.getButtonName(eb.buttonGuid),
+              type: 'remove',
+              icon: 'radio_button_checked'
+            });
+          }
+        });
+
+        if (buttonNodes.length > 0) {
+          txnNodes.push({
+            name: txnName,
+            type: 'mixed',
+            icon: 'sync',
+            children: buttonNodes
+          });
+        }
+      }
+    });
+
+    existTxns.forEach(et => {
+      if (!currTxns.some(ct => guidEq(ct.transactionGuid, et.transactionGuid))) {
+        txnNodes.push({
+          name: this.getTransactionName(companyGuid, et.transactionGuid),
+          type: 'remove',
+          icon: 'sync'
+        });
+      }
+    });
+
+    if (txnNodes.length > 0) {
+      nodes.push({ name: 'Plan Transactions', icon: 'sync', children: txnNodes });
+    }
+
+    const inquiryNodes: HierarchicalDiffNode[] = [];
+    const currInqs = curr.planInquiries || [];
+    const existInqs = exist.planInquiries || [];
+
+    currInqs.forEach(ci => {
+      if (!existInqs.some(ei => guidEq(ei.inquiryScreenNameGuid, ci.inquiryScreenNameGuid))) {
+        inquiryNodes.push({
+          name: this.getInquiryName(companyGuid, ci.inquiryScreenNameGuid),
+          type: 'add',
+          icon: 'search'
+        });
+      }
+    });
+    existInqs.forEach(ei => {
+      if (!currInqs.some(ci => guidEq(ci.inquiryScreenNameGuid, ei.inquiryScreenNameGuid))) {
+        inquiryNodes.push({
+          name: this.getInquiryName(companyGuid, ei.inquiryScreenNameGuid),
+          type: 'remove',
+          icon: 'search'
+        });
+      }
+    });
+
+    if (inquiryNodes.length > 0) {
+      nodes.push({ name: 'Plan Inquiry Screens', icon: 'web', children: inquiryNodes });
+    }
+  }
+
   save(): void {
     this.isSaving = true;
     const payload = this.buildPayload();
@@ -1125,11 +2007,16 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         this.isSaving = false;
         console.log('Scripts generation successful:', result);
         
+        const diffs = this.comparePayloads(this.existingPayload, payload);
+
         // Open the dialog to display generated scripts and ask for confirmation
         const dialogRef = this.dialog.open(this.scriptsDialogTemplate, {
-          width: '650px',
+          width: '950px',
+          maxHeight: '90vh',
           data: {
-            scripts: result.scripts || []
+            scripts: result.scripts || [],
+            formattedScript: (result.scripts || []).map((s: string) => this.formatSql(s)).join('\n\n'),
+            diffs: diffs
           }
         });
 
@@ -1414,53 +2301,61 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   get filteredCompanyPages(): CompanyPageDto[] {
     if (!this.activeConfig) return [];
-    if (!this.pageFilter) return this.activeConfig.companyPages;
-    const q = this.pageFilter.toLowerCase();
+    const filter = this.activeConfig.pageFilter || '';
+    if (!filter) return this.activeConfig.companyPages;
+    const q = filter.toLowerCase();
     return this.activeConfig.companyPages.filter(p => (p.name || '').toLowerCase().includes(q));
   }
 
   get filteredInquiries(): (CompanyInquiryDto & { name?: string })[] {
     if (!this.activeConfig) return [];
-    if (!this.inquiryFilter) return this.activeConfig.companyInquiries;
-    const q = this.inquiryFilter.toLowerCase();
+    const filter = this.activeConfig.inquiryFilter || '';
+    if (!filter) return this.activeConfig.companyInquiries;
+    const q = filter.toLowerCase();
     return this.activeConfig.companyInquiries.filter(i => (i.name || '').toLowerCase().includes(q));
   }
 
   get filteredWebServices(): (CompanyWebServiceDto & { name?: string })[] {
     if (!this.activeConfig) return [];
-    if (!this.webServiceFilter) return this.activeConfig.companyWebServices;
-    const q = this.webServiceFilter.toLowerCase();
+    const filter = this.activeConfig.webServiceFilter || '';
+    if (!filter) return this.activeConfig.companyWebServices;
+    const q = filter.toLowerCase();
     return this.activeConfig.companyWebServices.filter(w => (w.name || '').toLowerCase().includes(q));
   }
 
   filterProductPages(product: ProductConfig): CompanyPageDto[] {
-    if (!this.productPageFilter) return product.productPages;
-    const q = this.productPageFilter.toLowerCase();
+    const filter = product.pageFilter || '';
+    if (!filter) return product.productPages;
+    const q = filter.toLowerCase();
     return product.productPages.filter(p => (p.name || '').toLowerCase().includes(q));
   }
 
   filterProductTxns(product: ProductConfig): (ProductTransactionDto & { name?: string })[] {
-    if (!this.productTxnFilter) return product.productTransactions;
-    const q = this.productTxnFilter.toLowerCase();
+    const filter = product.txnFilter || '';
+    if (!filter) return product.productTransactions;
+    const q = filter.toLowerCase();
     return product.productTransactions.filter(t => (t.name || '').toLowerCase().includes(q));
   }
 
   filterPlanPages(plan: PlanConfig): CompanyPageDto[] {
-    if (!this.planPageFilter) return plan.planPages;
-    const q = this.planPageFilter.toLowerCase();
+    const filter = plan.pageFilter || '';
+    if (!filter) return plan.planPages;
+    const q = filter.toLowerCase();
     return plan.planPages.filter(p => (p.name || '').toLowerCase().includes(q));
   }
 
   filterPlanTxns(plan: PlanConfig): (PlanTransactionDto & { name?: string })[] {
-    if (!this.planTxnFilter) return plan.planTransactions;
-    const q = this.planTxnFilter.toLowerCase();
+    const filter = plan.txnFilter || '';
+    if (!filter) return plan.planTransactions;
+    const q = filter.toLowerCase();
     return plan.planTransactions.filter(t => (t.name || '').toLowerCase().includes(q));
   }
 
   filterProductPlanTxns(plan: PlanConfig): (PlanTransactionDto & { name?: string })[] {
     if (!plan.productPlanTransactions) return [];
-    if (!this.planTxnFilter) return plan.productPlanTransactions;
-    const q = this.planTxnFilter.toLowerCase();
+    const filter = plan.txnFilter || '';
+    if (!filter) return plan.productPlanTransactions;
+    const q = filter.toLowerCase();
     return plan.productPlanTransactions.filter(t => (t.name || '').toLowerCase().includes(q));
   }
 
@@ -1479,6 +2374,27 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     this.bulkCompanyButtonGuid = '';
     this.bulkProductButtonGuid = '';
     this.bulkPlanButtonGuid = '';
+
+    // Clear localized filters recursively
+    this.companyConfigs.forEach(config => {
+      config.pageFilter = '';
+      config.inquiryFilter = '';
+      config.webServiceFilter = '';
+      config.companyPages.forEach(p => p.buttonFilter = '');
+      config.products.forEach(p => {
+        p.pageFilter = '';
+        p.txnFilter = '';
+        p.productPages.forEach(pg => pg.buttonFilter = '');
+        p.productTransactions.forEach(t => t.buttonFilter = '');
+      });
+      config.plans.forEach(p => {
+        p.pageFilter = '';
+        p.txnFilter = '';
+        p.planPages.forEach(pg => pg.buttonFilter = '');
+        p.planTransactions.forEach(t => t.buttonFilter = '');
+        p.productPlanTransactions?.forEach(t => t.buttonFilter = '');
+      });
+    });
   }
 
   // ══════════════════════════════════════════
@@ -1535,10 +2451,11 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   // Feature 6: Button Filter & Bulk Button Actions
   // ══════════════════════════════════════════
 
-  /** Filter buttons inside a page/transaction by the global buttonFilter text. */
-  filterButtons(buttons: ButtonDto[]): ButtonDto[] {
-    if (!this.buttonFilter) return buttons;
-    const q = this.buttonFilter.toLowerCase();
+  /** Filter buttons inside a page/transaction by a localized filter text. */
+  filterButtons(buttons: ButtonDto[], filterText?: string): ButtonDto[] {
+    const filter = filterText || '';
+    if (!filter) return buttons;
+    const q = filter.toLowerCase();
     return buttons.filter(b => (b.name || '').toLowerCase().includes(q));
   }
 

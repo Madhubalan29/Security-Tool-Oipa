@@ -1,4 +1,10 @@
 {
+  "/api/ivs": {
+    "target": "http://10.10.3.237:9097",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
   "/api": {
     "target": "http://localhost:8015",
     "secure": false,

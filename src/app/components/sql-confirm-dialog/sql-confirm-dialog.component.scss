@@ -2,15 +2,69 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-width: 450px;
+  min-width: 500px;
+  max-width: 700px;
+
+  .scripts-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: #f1f5f9; // light slate-100
+    border: 1px solid #cbd5e1;
+    border-bottom: none;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    margin-bottom: -12px;
+    z-index: 2;
+
+    .header-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .copy-btn {
+      height: 28px !important;
+      line-height: 28px !important;
+      padding: 0 10px !important;
+      font-size: 0.75rem !important;
+      border-radius: 6px !important;
+      background: #ffffff !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+      font-weight: 600 !important;
+
+      .copy-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        margin-right: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      &:hover {
+        background: #f8fafc !important;
+        border-color: #94a3b8 !important;
+      }
+    }
+  }
   
   .scripts-container {
     background: #0f172a; // dark slate
-    border-radius: 8px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
     padding: 16px;
-    max-height: 300px;
+    max-height: 350px;
     overflow-y: auto;
-    border: 1px solid #1e293b;
+    border: 1px solid #cbd5e1;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
     
     pre {
       margin: 0;
@@ -19,9 +73,10 @@
       
       code {
         font-family: 'Fira Code', 'Courier New', Courier, monospace;
-        font-size: 0.85rem;
-        color: #e2e8f0; // slate-200
-        line-height: 1.5;
+        font-size: 0.9rem;
+        color: #f8fafc; // higher contrast slate-50
+        line-height: 1.6;
+        letter-spacing: 0.01em;
       }
     }
   }

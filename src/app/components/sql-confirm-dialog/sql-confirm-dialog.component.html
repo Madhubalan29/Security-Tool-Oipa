@@ -1,15 +1,26 @@
 <h2 mat-dialog-title>{{ data.title || 'Review SQL Script' }}</h2>
 <mat-dialog-content class="scripts-dialog-content">
   <p>{{ data.subtitle || 'The following SQL script has been generated.' }}</p>
-  <div class="scripts-container" *ngIf="data.script; else noScripts">
-    <pre><code>{{ data.script }}</code></pre>
+  
+  <div class="scripts-header" *ngIf="data.script">
+    <span class="header-label">SQL Script</span>
+    <button mat-stroked-button class="copy-btn" (click)="copyToClipboard()">
+      <mat-icon class="copy-icon">{{ copied ? 'check_circle' : 'content_copy' }}</mat-icon>
+      <span>{{ copied ? 'Copied!' : 'Copy Script' }}</span>
+    </button>
   </div>
+  
+  <div class="scripts-container" *ngIf="data.script; else noScripts">
+    <pre><code>{{ formattedScript }}</code></pre>
+  </div>
+  
   <ng-template #noScripts>
     <div class="no-scripts-hint">
       <mat-icon>info</mat-icon>
       <span>No query was generated.</span>
     </div>
   </ng-template>
+  
   <p class="warning-text" *ngIf="data.script">
     <mat-icon>warning</mat-icon>
     Confirming will execute this query directly on the database.

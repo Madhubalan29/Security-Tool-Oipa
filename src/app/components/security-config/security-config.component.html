@@ -164,15 +164,8 @@
             <div class="dual-filter-row">
               <mat-form-field appearance="outline" class="filter-field">
                 <mat-icon matPrefix>filter_list</mat-icon>
-                <input matInput [(ngModel)]="pageFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter pages...">
-                <button *ngIf="pageFilter" mat-icon-button matSuffix (click)="pageFilter = ''">
-                  <mat-icon>close</mat-icon>
-                </button>
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="filter-field">
-                <mat-icon matPrefix>radio_button_checked</mat-icon>
-                <input matInput [(ngModel)]="buttonFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter buttons...">
-                <button *ngIf="buttonFilter" mat-icon-button matSuffix (click)="buttonFilter = ''">
+                <input matInput [(ngModel)]="activeConfig.pageFilter" placeholder="Filter pages...">
+                <button *ngIf="activeConfig.pageFilter" mat-icon-button matSuffix (click)="activeConfig.pageFilter = ''">
                   <mat-icon>close</mat-icon>
                 </button>
               </mat-form-field>
@@ -196,10 +189,18 @@
                   <div class="page-buttons-actions" *ngIf="page.buttons.length > 0">
                     <button mat-stroked-button class="bulk-btn select sm" (click)="toggleAllPageButtons(page, true)" [disabled]="areAllButtonsSelected(page)">Select All Buttons</button>
                     <button mat-stroked-button class="bulk-btn deselect sm" (click)="toggleAllPageButtons(page, false)" [disabled]="!areSomeButtonsSelected(page) && !areAllButtonsSelected(page)">Deselect All</button>
+                    
+                    <mat-form-field appearance="outline" class="filter-field compact inline-filter">
+                      <mat-icon matPrefix>radio_button_checked</mat-icon>
+                      <input matInput [(ngModel)]="page.buttonFilter" placeholder="Filter buttons...">
+                      <button *ngIf="page.buttonFilter" mat-icon-button matSuffix (click)="page.buttonFilter = ''">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </mat-form-field>
                   </div>
                   <div class="button-grid">
                     <mat-checkbox
-                      *ngFor="let btn of filterButtons(page.buttons)"
+                      *ngFor="let btn of filterButtons(page.buttons, page.buttonFilter)"
                       [checked]="btn.selected"
                       (change)="btn.selected = $event.checked; onButtonChange(page)"
                       class="button-check"
@@ -207,7 +208,7 @@
                       <span class="btn-label">{{ btn.name }}</span>
                     </mat-checkbox>
                   </div>
-                  <p *ngIf="filterButtons(page.buttons).length === 0 && buttonFilter" class="empty-text nested">No buttons match "{{ buttonFilter }}"</p>
+                  <p *ngIf="filterButtons(page.buttons, page.buttonFilter).length === 0 && page.buttonFilter" class="empty-text nested">No buttons match "{{ page.buttonFilter }}"</p>
                 </ng-template>
               </mat-expansion-panel>
             </mat-accordion>
@@ -241,8 +242,8 @@
                 <!-- Filter -->
                 <mat-form-field appearance="outline" class="filter-field compact">
                   <mat-icon matPrefix>filter_list</mat-icon>
-                  <input matInput [(ngModel)]="inquiryFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter inquiries...">
-                  <button *ngIf="inquiryFilter" mat-icon-button matSuffix (click)="inquiryFilter = ''">
+                  <input matInput [(ngModel)]="activeConfig.inquiryFilter" placeholder="Filter inquiries...">
+                  <button *ngIf="activeConfig.inquiryFilter" mat-icon-button matSuffix (click)="activeConfig.inquiryFilter = ''">
                     <mat-icon>close</mat-icon>
                   </button>
                 </mat-form-field>
@@ -270,8 +271,8 @@
                 <!-- Filter -->
                 <mat-form-field appearance="outline" class="filter-field compact">
                   <mat-icon matPrefix>filter_list</mat-icon>
-                  <input matInput [(ngModel)]="webServiceFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter web services...">
-                  <button *ngIf="webServiceFilter" mat-icon-button matSuffix (click)="webServiceFilter = ''">
+                  <input matInput [(ngModel)]="activeConfig.webServiceFilter" placeholder="Filter web services...">
+                  <button *ngIf="activeConfig.webServiceFilter" mat-icon-button matSuffix (click)="activeConfig.webServiceFilter = ''">
                     <mat-icon>close</mat-icon>
                   </button>
                 </mat-form-field>
@@ -395,23 +396,14 @@
                     </button>
                   </div>
                 </div>
-                <!-- Dual filter for this product -->
-                <div class="dual-filter-row nested">
-                  <mat-form-field appearance="outline" class="filter-field compact nested">
-                    <mat-icon matPrefix>filter_list</mat-icon>
-                    <input matInput [(ngModel)]="productPageFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter pages...">
-                    <button *ngIf="productPageFilter" mat-icon-button matSuffix (click)="productPageFilter = ''">
-                      <mat-icon>close</mat-icon>
-                    </button>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" class="filter-field compact nested">
-                    <mat-icon matPrefix>radio_button_checked</mat-icon>
-                    <input matInput [(ngModel)]="buttonFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter buttons...">
-                    <button *ngIf="buttonFilter" mat-icon-button matSuffix (click)="buttonFilter = ''">
-                      <mat-icon>close</mat-icon>
-                    </button>
-                  </mat-form-field>
-                </div>
+                <!-- Page filter for this product -->
+                <mat-form-field appearance="outline" class="filter-field compact nested">
+                  <mat-icon matPrefix>filter_list</mat-icon>
+                  <input matInput [(ngModel)]="product.pageFilter" placeholder="Filter pages...">
+                  <button *ngIf="product.pageFilter" mat-icon-button matSuffix (click)="product.pageFilter = ''">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </mat-form-field>
                 <mat-accordion multi class="nested-accordion">
                   <mat-expansion-panel *ngFor="let page of filterProductPages(product); trackBy: trackByGuid">
                     <mat-expansion-panel-header>
@@ -430,13 +422,21 @@
                       <div class="page-buttons-actions" *ngIf="page.buttons.length > 0">
                         <button mat-stroked-button class="bulk-btn select sm" (click)="toggleAllPageButtons(page, true)" [disabled]="areAllButtonsSelected(page)">Select All Buttons</button>
                         <button mat-stroked-button class="bulk-btn deselect sm" (click)="toggleAllPageButtons(page, false)" [disabled]="!areSomeButtonsSelected(page) && !areAllButtonsSelected(page)">Deselect All</button>
+                        
+                        <mat-form-field appearance="outline" class="filter-field compact inline-filter">
+                          <mat-icon matPrefix>radio_button_checked</mat-icon>
+                          <input matInput [(ngModel)]="page.buttonFilter" placeholder="Filter buttons...">
+                          <button *ngIf="page.buttonFilter" mat-icon-button matSuffix (click)="page.buttonFilter = ''">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </mat-form-field>
                       </div>
                       <div class="button-grid">
-                        <mat-checkbox *ngFor="let btn of filterButtons(page.buttons)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onButtonChange(page)" class="button-check">
+                        <mat-checkbox *ngFor="let btn of filterButtons(page.buttons, page.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onButtonChange(page)" class="button-check">
                           <span class="btn-label">{{ btn.name }}</span>
                         </mat-checkbox>
                       </div>
-                      <p *ngIf="filterButtons(page.buttons).length === 0 && buttonFilter" class="empty-text nested">No buttons match "{{ buttonFilter }}"</p>
+                      <p *ngIf="filterButtons(page.buttons, page.buttonFilter).length === 0 && page.buttonFilter" class="empty-text nested">No buttons match "{{ page.buttonFilter }}"</p>
                     </ng-template>
                   </mat-expansion-panel>
                 </mat-accordion>
@@ -456,8 +456,8 @@
                 <!-- Filter -->
                 <mat-form-field appearance="outline" class="filter-field compact nested">
                   <mat-icon matPrefix>filter_list</mat-icon>
-                  <input matInput [(ngModel)]="productTxnFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter transactions...">
-                  <button *ngIf="productTxnFilter" mat-icon-button matSuffix (click)="productTxnFilter = ''">
+                  <input matInput [(ngModel)]="product.txnFilter" placeholder="Filter transactions...">
+                  <button *ngIf="product.txnFilter" mat-icon-button matSuffix (click)="product.txnFilter = ''">
                     <mat-icon>close</mat-icon>
                   </button>
                 </mat-form-field>
@@ -479,13 +479,21 @@
                       <div class="page-buttons-actions" *ngIf="txn.buttons.length > 0">
                         <button mat-stroked-button class="bulk-btn select sm" (click)="toggleAllTxnButtons(txn, true)" [disabled]="areAllTxnButtonsSelected(txn)">Select All Buttons</button>
                         <button mat-stroked-button class="bulk-btn deselect sm" (click)="toggleAllTxnButtons(txn, false)" [disabled]="!areSomeTxnButtonsSelected(txn) && !areAllTxnButtonsSelected(txn)">Deselect All</button>
+                        
+                        <mat-form-field appearance="outline" class="filter-field compact inline-filter">
+                          <mat-icon matPrefix>radio_button_checked</mat-icon>
+                          <input matInput [(ngModel)]="txn.buttonFilter" placeholder="Filter buttons...">
+                          <button *ngIf="txn.buttonFilter" mat-icon-button matSuffix (click)="txn.buttonFilter = ''">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </mat-form-field>
                       </div>
                       <div class="button-grid">
-                        <mat-checkbox *ngFor="let btn of filterButtons(txn.buttons)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onTxnButtonChange(txn)" class="button-check">
+                        <mat-checkbox *ngFor="let btn of filterButtons(txn.buttons, txn.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onTxnButtonChange(txn)" class="button-check">
                           <span class="btn-label">{{ btn.name }}</span>
                         </mat-checkbox>
                       </div>
-                      <p *ngIf="filterButtons(txn.buttons).length === 0 && buttonFilter" class="empty-text nested">No buttons match "{{ buttonFilter }}"</p>
+                      <p *ngIf="filterButtons(txn.buttons, txn.buttonFilter).length === 0 && txn.buttonFilter" class="empty-text nested">No buttons match "{{ txn.buttonFilter }}"</p>
                     </ng-template>
                   </mat-expansion-panel>
                 </mat-accordion>
@@ -509,15 +517,8 @@
           <div class="tab-content plans-tab-split">
             
             <!-- ──── COMPARTMENT 1: PLAN PAGES (All Plans) ──── -->
+            <!-- ──── COMPARTMENT 1: PLAN PAGES (All Plans) ──── -->
             <div class="compartment-section plan-pages-section">
-              <div class="compartment-header">
-                <mat-icon class="compartment-icon company">description</mat-icon>
-                <div>
-                  <h3 class="compartment-title">Plan Pages Configuration</h3>
-                  <p class="compartment-desc">Configure pages for all selected plans (direct and product-inherited)</p>
-                </div>
-              </div>
-
               <!-- Feature 6: Bulk Button Action (All Plans) -->
               <div class="bulk-btn-action-card">
                 <div class="bulk-btn-action-header">
@@ -582,22 +583,12 @@
                 </button>
               </div>
 
-              <!-- Dual filter for plan pages -->
-              <div class="dual-filter-row">
-                <mat-form-field appearance="outline" class="filter-field">
-                  <mat-icon matPrefix>filter_list</mat-icon>
-                  <input matInput [(ngModel)]="planPageFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter plans...">
-                  <button *ngIf="planPageFilter" mat-icon-button matSuffix (click)="planPageFilter = ''">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                </mat-form-field>
-                <mat-form-field appearance="outline" class="filter-field">
-                  <mat-icon matPrefix>radio_button_checked</mat-icon>
-                  <input matInput [(ngModel)]="buttonFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter buttons...">
-                  <button *ngIf="buttonFilter" mat-icon-button matSuffix (click)="buttonFilter = ''">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                </mat-form-field>
+              <div class="compartment-header">
+                <mat-icon class="compartment-icon company">description</mat-icon>
+                <div>
+                  <h3 class="compartment-title">Plan Pages Configuration</h3>
+                  <p class="compartment-desc">Configure pages for all selected plans (direct and product-inherited)</p>
+                </div>
               </div>
 
               <!-- Plan Pages Expansion Panels -->
@@ -630,6 +621,14 @@
                       </button>
                     </div>
                   </div>
+                  <!-- Page filter for this plan -->
+                  <mat-form-field appearance="outline" class="filter-field compact nested">
+                    <mat-icon matPrefix>filter_list</mat-icon>
+                    <input matInput [(ngModel)]="plan.pageFilter" placeholder="Filter pages...">
+                    <button *ngIf="plan.pageFilter" mat-icon-button matSuffix (click)="plan.pageFilter = ''">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </mat-form-field>
                   <mat-accordion multi class="nested-accordion">
                     <mat-expansion-panel *ngFor="let page of filterPlanPages(plan); trackBy: trackByGuid">
                       <mat-expansion-panel-header>
@@ -648,13 +647,21 @@
                         <div class="page-buttons-actions" *ngIf="page.buttons.length > 0">
                           <button mat-stroked-button class="bulk-btn select sm" (click)="toggleAllPageButtons(page, true)" [disabled]="areAllButtonsSelected(page)">Select All Buttons</button>
                           <button mat-stroked-button class="bulk-btn deselect sm" (click)="toggleAllPageButtons(page, false)" [disabled]="!areSomeButtonsSelected(page) && !areAllButtonsSelected(page)">Deselect All</button>
+                          
+                          <mat-form-field appearance="outline" class="filter-field compact inline-filter">
+                            <mat-icon matPrefix>radio_button_checked</mat-icon>
+                            <input matInput [(ngModel)]="page.buttonFilter" placeholder="Filter buttons...">
+                            <button *ngIf="page.buttonFilter" mat-icon-button matSuffix (click)="page.buttonFilter = ''">
+                              <mat-icon>close</mat-icon>
+                            </button>
+                          </mat-form-field>
                         </div>
                         <div class="button-grid">
-                          <mat-checkbox *ngFor="let btn of filterButtons(page.buttons)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onButtonChange(page)" class="button-check">
+                          <mat-checkbox *ngFor="let btn of filterButtons(page.buttons, page.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onButtonChange(page)" class="button-check">
                             <span class="btn-label">{{ btn.name }}</span>
                           </mat-checkbox>
                         </div>
-                        <p *ngIf="filterButtons(page.buttons).length === 0 && buttonFilter" class="empty-text nested">No buttons match "{{ buttonFilter }}"</p>
+                        <p *ngIf="filterButtons(page.buttons, page.buttonFilter).length === 0 && page.buttonFilter" class="empty-text nested">No buttons match "{{ page.buttonFilter }}"</p>
                       </ng-template>
                     </mat-expansion-panel>
                   </mat-accordion>
@@ -694,10 +701,11 @@
                       </button>
                     </div>
                   </div>
+                  <!-- Filter -->
                   <mat-form-field appearance="outline" class="filter-field compact nested">
                     <mat-icon matPrefix>filter_list</mat-icon>
-                    <input matInput [(ngModel)]="planTxnFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter transactions...">
-                    <button *ngIf="planTxnFilter" mat-icon-button matSuffix (click)="planTxnFilter = ''">
+                    <input matInput [(ngModel)]="plan.txnFilter" placeholder="Filter transactions...">
+                    <button *ngIf="plan.txnFilter" mat-icon-button matSuffix (click)="plan.txnFilter = ''">
                       <mat-icon>close</mat-icon>
                     </button>
                   </mat-form-field>
@@ -719,12 +727,21 @@
                         <div class="page-buttons-actions" *ngIf="txn.buttons.length > 0">
                           <button mat-stroked-button class="bulk-btn select sm" (click)="toggleAllTxnButtons(txn, true)" [disabled]="areAllTxnButtonsSelected(txn)">Select All Buttons</button>
                           <button mat-stroked-button class="bulk-btn deselect sm" (click)="toggleAllTxnButtons(txn, false)" [disabled]="!areSomeTxnButtonsSelected(txn) && !areAllTxnButtonsSelected(txn)">Deselect All</button>
+                          
+                          <mat-form-field appearance="outline" class="filter-field compact inline-filter">
+                            <mat-icon matPrefix>radio_button_checked</mat-icon>
+                            <input matInput [(ngModel)]="txn.buttonFilter" placeholder="Filter buttons...">
+                            <button *ngIf="txn.buttonFilter" mat-icon-button matSuffix (click)="txn.buttonFilter = ''">
+                              <mat-icon>close</mat-icon>
+                            </button>
+                          </mat-form-field>
                         </div>
                         <div class="button-grid">
-                          <mat-checkbox *ngFor="let btn of txn.buttons" [checked]="btn.selected" (change)="btn.selected = $event.checked; onTxnButtonChange(txn)" class="button-check">
+                          <mat-checkbox *ngFor="let btn of filterButtons(txn.buttons, txn.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onTxnButtonChange(txn)" class="button-check">
                             {{ btn.name }}
                           </mat-checkbox>
                         </div>
+                        <p *ngIf="filterButtons(txn.buttons, txn.buttonFilter).length === 0 && txn.buttonFilter" class="empty-text nested">No buttons match "{{ txn.buttonFilter }}"</p>
                       </ng-template>
                     </mat-expansion-panel>
                   </mat-accordion>
@@ -802,12 +819,21 @@
                         <div class="page-buttons-actions" *ngIf="txn.buttons.length > 0">
                           <button mat-stroked-button class="bulk-btn select sm" (click)="toggleAllTxnButtons(txn, true)" [disabled]="areAllTxnButtonsSelected(txn)">Select All Buttons</button>
                           <button mat-stroked-button class="bulk-btn deselect sm" (click)="toggleAllTxnButtons(txn, false)" [disabled]="!areSomeTxnButtonsSelected(txn) && !areAllTxnButtonsSelected(txn)">Deselect All</button>
+                          
+                          <mat-form-field appearance="outline" class="filter-field compact inline-filter">
+                            <mat-icon matPrefix>radio_button_checked</mat-icon>
+                            <input matInput [(ngModel)]="txn.buttonFilter" placeholder="Filter buttons...">
+                            <button *ngIf="txn.buttonFilter" mat-icon-button matSuffix (click)="txn.buttonFilter = ''">
+                              <mat-icon>close</mat-icon>
+                            </button>
+                          </mat-form-field>
                         </div>
                         <div class="button-grid">
-                          <mat-checkbox *ngFor="let btn of txn.buttons" [checked]="btn.selected" (change)="btn.selected = $event.checked; onTxnButtonChange(txn)" class="button-check">
+                          <mat-checkbox *ngFor="let btn of filterButtons(txn.buttons, txn.buttonFilter)" [checked]="btn.selected" (change)="btn.selected = $event.checked; onTxnButtonChange(txn)" class="button-check">
                             {{ btn.name }}
                           </mat-checkbox>
                         </div>
+                        <p *ngIf="filterButtons(txn.buttons, txn.buttonFilter).length === 0 && txn.buttonFilter" class="empty-text nested">No buttons match "{{ txn.buttonFilter }}"</p>
                       </ng-template>
                     </mat-expansion-panel>
                   </mat-accordion>
@@ -857,29 +883,81 @@
     <button mat-raised-button color="primary" [mat-dialog-close]="data.availablePlans" [disabled]="data.availablePlans.length === 0">Apply to Selected</button>
   </mat-dialog-actions>
 </ng-template>
-
 <!-- Inline Dialog Template for SQL Scripts Review & Execution -->
 <ng-template #scriptsDialogTemplate let-data>
-  <h2 mat-dialog-title>Review SQL Scripts</h2>
-  <mat-dialog-content class="scripts-dialog-content">
-    <p>The following SQL delta scripts have been generated based on your configuration changes.</p>
-    <div class="scripts-container" *ngIf="data.scripts && data.scripts.length > 0; else noScripts">
-      <pre><code>{{ data.scripts.join('\n') }}</code></pre>
-    </div>
-    <ng-template #noScripts>
-      <div class="no-scripts-hint">
-        <mat-icon>info</mat-icon>
-        <span>No delta queries were generated. The configuration matches the database state.</span>
+  <h2 mat-dialog-title>Review Changes &amp; SQL Scripts</h2>
+  <mat-dialog-content class="scripts-dialog-content-split">
+    
+    <!-- Left Column: Changes Review -->
+    <div class="changes-review-panel">
+      <h3 class="panel-subtitle">
+        <mat-icon class="subtitle-icon">fact_check</mat-icon> Changes Summary
+      </h3>
+      <p class="panel-desc">Summary of security group modifications:</p>
+      
+      <!-- Recursive Tree Node Template for Hierarchical Diffs -->
+      <ng-template #nodeTemplate let-node="node">
+        <div class="tree-node" [class.add]="node.type === 'add'" [class.remove]="node.type === 'remove'" [class.mixed]="node.type === 'mixed'">
+          <div class="node-header">
+            <mat-icon class="node-icon" *ngIf="node.icon">{{ node.icon }}</mat-icon>
+            <span class="node-name">{{ node.name }}</span>
+            <span class="status-badge" *ngIf="node.type && node.type !== 'mixed'" [class.add]="node.type === 'add'" [class.remove]="node.type === 'remove'">
+              {{ node.type === 'add' ? 'Added' : 'Revoked' }}
+            </span>
+          </div>
+          <div class="node-children" *ngIf="node.children && node.children.length > 0">
+            <ng-container *ngFor="let child of node.children">
+              <ng-container *ngTemplateOutlet="nodeTemplate; context: { node: child }"></ng-container>
+            </ng-container>
+          </div>
+        </div>
+      </ng-template>
+
+      <div class="changes-list-container" *ngIf="data.diffs && data.diffs.length > 0; else noChanges">
+        <ng-container *ngFor="let company of data.diffs">
+          <ng-container *ngTemplateOutlet="nodeTemplate; context: { node: company }"></ng-container>
+        </ng-container>
       </div>
-    </ng-template>
-    <p class="warning-text" *ngIf="data.scripts && data.scripts.length > 0">
-      <mat-icon>warning</mat-icon>
-      Confirming will execute these queries directly on the database.
-    </p>
+      <ng-template #noChanges>
+        <div class="no-changes-hint">
+          <mat-icon>info</mat-icon>
+          <span>No selections were changed compared to the database.</span>
+        </div>
+      </ng-template>
+    </div>
+
+    <!-- Right Column: SQL Scripts -->
+    <div class="sql-scripts-panel">
+      <div class="scripts-header" *ngIf="data.scripts && data.scripts.length > 0">
+        <h3 class="panel-subtitle">
+          <mat-icon class="subtitle-icon">terminal</mat-icon> Generated SQL Scripts
+        </h3>
+        <button mat-stroked-button class="copy-btn" (click)="copyScriptsToClipboard(data.scripts)">
+          <mat-icon class="copy-icon">{{ copied ? 'check_circle' : 'content_copy' }}</mat-icon>
+          <span>{{ copied ? 'Copied!' : 'Copy Script' }}</span>
+        </button>
+      </div>
+      
+      <div class="scripts-container" *ngIf="data.scripts && data.scripts.length > 0; else noScripts">
+        <pre><code>{{ data.formattedScript }}</code></pre>
+      </div>
+      
+      <ng-template #noScripts>
+        <div class="no-scripts-hint">
+          <mat-icon>info</mat-icon>
+          <span>No delta queries were generated. The configuration matches the database state.</span>
+        </div>
+      </ng-template>
+      
+      <p class="warning-text" *ngIf="data.scripts && data.scripts.length > 0">
+        <mat-icon>warning</mat-icon>
+        Confirming will execute these queries directly on the database.
+      </p>
+    </div>
+
   </mat-dialog-content>
   <mat-dialog-actions align="end">
     <button mat-button mat-dialog-close>Cancel</button>
     <button mat-raised-button color="primary" [mat-dialog-close]="true" [disabled]="!data.scripts || data.scripts.length === 0">Confirm &amp; Insert</button>
   </mat-dialog-actions>
 </ng-template>
-

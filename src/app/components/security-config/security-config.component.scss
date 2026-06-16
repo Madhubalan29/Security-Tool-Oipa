@@ -538,6 +538,78 @@
   margin-bottom: 8px;
   background: var(--surface);
   border-bottom: 1px dashed var(--border-light);
+  align-items: center;
+
+  .inline-filter {
+    margin-left: auto;
+    max-width: 180px !important;
+    margin-bottom: 0 !important;
+
+    ::ng-deep {
+      .mat-mdc-form-field-subscript-wrapper {
+        display: none !important;
+      }
+      .mat-mdc-text-field-wrapper {
+        height: 32px !important;
+        padding: 0 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        background: transparent !important;
+      }
+      .mat-mdc-form-field-flex {
+        height: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+      }
+      .mat-mdc-form-field-infix {
+        padding: 0 !important;
+        min-height: auto !important;
+        display: flex !important;
+        align-items: center !important;
+      }
+      .mat-mdc-form-field-icon-prefix {
+        display: inline-flex !important;
+        align-items: center !important;
+        padding: 0 !important;
+        margin: 0 6px 0 0 !important;
+        
+        mat-icon {
+          font-size: 16px !important;
+          width: 16px !important;
+          height: 16px !important;
+          color: var(--text-muted) !important;
+        }
+      }
+      input.mat-mdc-input-element {
+        font-size: 0.8rem !important;
+        height: auto !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        line-height: normal !important;
+        color: var(--text-primary) !important;
+      }
+      .mat-mdc-form-field-icon-suffix {
+        display: inline-flex !important;
+        align-items: center !important;
+        padding: 0 !important;
+        
+        button {
+          width: 24px !important;
+          height: 24px !important;
+          padding: 0 !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          
+          mat-icon {
+            font-size: 14px !important;
+            width: 14px !important;
+            height: 14px !important;
+          }
+        }
+      }
+    }
+  }
 }
 
 .button-grid {
@@ -967,20 +1039,219 @@
   &[disabled] { opacity: 0.45; box-shadow: none !important; }
 }
 
-// ── Scripts Dialog Custom Styling ──
-.scripts-dialog-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 450px;
-  
+// ── Scripts Dialog Custom Styling (Split Screen layout) ──
+.scripts-dialog-content-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  min-width: 850px;
+  height: 550px;
+  max-height: 70vh;
+  overflow: hidden !important;
+  padding: 16px 24px !important;
+
+  .changes-review-panel, .sql-scripts-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .panel-subtitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 4px;
+
+    .subtitle-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: var(--primary);
+    }
+  }
+
+  .panel-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0 0 12px;
+  }
+
+  // Changes Review list
+  .changes-list-container {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-alt);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tree-node {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.85rem;
+    margin-top: 4px;
+    transition: all var(--transition-fast);
+
+    // Tree indentation guidelines
+    .node-children {
+      margin-left: 14px;
+      padding-left: 10px;
+      border-left: 1px dashed rgba(0, 0, 0, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .node-header {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: background var(--transition-fast);
+      cursor: default;
+
+      &:hover {
+        background: rgba(0, 0, 0, 0.02);
+      }
+    }
+
+    .node-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .node-name {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    // Status classes
+    &.add {
+      > .node-header {
+        background: rgba(16, 185, 129, 0.04);
+        border: 1px solid rgba(16, 185, 129, 0.15);
+        
+        .node-icon { color: #10b981; }
+        .node-name { color: #065f46; font-weight: 600; }
+      }
+    }
+
+    &.remove {
+      > .node-header {
+        background: rgba(239, 68, 68, 0.04);
+        border: 1px solid rgba(239, 68, 68, 0.15);
+        
+        .node-icon { color: #ef4444; }
+        .node-name { color: #991b1b; font-weight: 600; }
+      }
+    }
+
+    &.mixed {
+      > .node-header {
+        .node-name { font-weight: 600; }
+      }
+    }
+
+    // Status badges
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: auto;
+
+      &.add {
+        background: rgba(16, 185, 129, 0.15);
+        color: #059669;
+      }
+
+      &.remove {
+        background: rgba(239, 68, 68, 0.15);
+        color: #dc2626;
+      }
+    }
+  }
+
+  .no-changes-hint, .no-scripts-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    padding: 16px;
+    background: var(--surface-alt);
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+
+    mat-icon { font-size: 20px; width: 20px; height: 20px; }
+  }
+
+  // SQL scripts panel
+  .scripts-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+
+    .panel-subtitle {
+      margin-bottom: 0;
+    }
+
+    .copy-btn {
+      height: 32px !important;
+      line-height: 32px !important;
+      padding: 0 12px !important;
+      font-size: 0.75rem !important;
+      border-radius: 6px !important;
+      background: var(--surface) !important;
+      color: var(--text-primary) !important;
+      border-color: var(--border) !important;
+      font-weight: 600 !important;
+
+      .copy-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        margin-right: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      &:hover {
+        background: var(--surface-alt) !important;
+        border-color: var(--primary-light) !important;
+      }
+    }
+  }
+
   .scripts-container {
+    flex: 1;
     background: #0f172a; // dark slate
     border-radius: 8px;
     padding: 16px;
-    max-height: 300px;
     overflow-y: auto;
     border: 1px solid #1e293b;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
     
     pre {
       margin: 0;
@@ -990,42 +1261,31 @@
       code {
         font-family: 'Fira Code', 'Courier New', Courier, monospace;
         font-size: 0.85rem;
-        color: #e2e8f0; // slate-200
+        color: #f8fafc; // higher contrast slate-50
         line-height: 1.5;
+        letter-spacing: 0.01em;
       }
     }
-  }
-
-  .no-scripts-hint {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-muted);
-    font-size: 0.875rem;
-    padding: 16px;
-    background: var(--surface-alt);
-    border-radius: var(--radius-sm);
-
-    mat-icon { font-size: 20px; width: 20px; height: 20px; }
   }
 
   .warning-text {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 500;
     color: #e11d48; // rose-600
     background: rgba(225, 29, 72, 0.05);
-    padding: 10px 14px;
+    padding: 8px 12px;
     border-radius: 6px;
     border: 1px solid rgba(225, 29, 72, 0.15);
-    margin: 8px 0 0;
+    margin: 12px 0 0;
+    flex-shrink: 0;
 
     mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
       color: #e11d48;
     }
   }

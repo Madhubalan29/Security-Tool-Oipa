@@ -9,6 +9,7 @@ export interface CompanyPageDto {
   buttons: ButtonDto[];
   selected?: boolean; // For UI state
   name?: string;
+  buttonFilter?: string;
 }
 
 export interface CompanyInquiryDto {
@@ -28,6 +29,7 @@ export interface PlanTransactionDto {
   buttons: ButtonDto[];
   selected?: boolean;
   name?: string;
+  buttonFilter?: string;
 }
 
 export interface PlanPageDto {
@@ -51,6 +53,7 @@ export interface ProductTransactionDto {
   buttons: ButtonDto[];
   selected?: boolean;
   name?: string;
+  buttonFilter?: string;
 }
 
 export interface ProductPageDto {
