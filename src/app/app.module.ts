@@ -30,6 +30,9 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatDialogModule } from '@angular/material/dialog';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
@@ -63,6 +66,7 @@ import { RateLoaderComponent } from './components/rate-loader/rate-loader.compon
     HttpClientModule,
     FormsModule,
     ReactiveFormsModule,
+    MatAutocompleteModule,
     // Material
     MatStepperModule,
     MatInputModule,
@@ -88,7 +92,10 @@ import { RateLoaderComponent } from './components/rate-loader/rate-loader.compon
     MatChipsModule,
     MatBadgeModule,
     MatRadioModule,
-    MatDialogModule
+    MatDialogModule,
+    MatAutocompleteModule,
+    MatDatepickerModule,
+    MatNativeDateModule
   ],
   providers: [],
   bootstrap: [AppComponent]

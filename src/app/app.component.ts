@@ -10,7 +10,7 @@ import { AuthService } from './services/auth.service';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
-  title = 'OIPA Security Tool';
+  title = 'OIPA Admin Module';
   isLoginPage = true;
   sidenavOpened = true;
 
