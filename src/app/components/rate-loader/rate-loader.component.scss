@@ -1,0 +1,212 @@
+.rate-loader-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.back-btn {
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: 16px;
+  transition: color var(--transition-fast);
+
+  mat-icon {
+    margin-right: 4px;
+    font-size: 20px;
+  }
+
+  &:hover {
+    color: var(--primary);
+  }
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 48px;
+
+  .header-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #f59e0b, #ea580c);
+    margin-bottom: 24px;
+    box-shadow: 0 12px 40px rgba(245, 158, 11, 0.25);
+
+    mat-icon {
+      font-size: 40px;
+      width: 40px;
+      height: 40px;
+      color: #fff;
+    }
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+    letter-spacing: -0.03em;
+  }
+  
+  .page-subtitle {
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+}
+
+.upload-card {
+  margin-bottom: 32px;
+  text-align: center;
+  padding: 48px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  
+  .file-upload-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+
+    .file-name {
+      font-weight: 500;
+      color: var(--primary);
+    }
+  }
+}
+
+.mapping-section {
+  .mapping-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+
+    h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+  }
+}
+
+.mapping-panel {
+  margin-bottom: 16px;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-sm) !important;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-top: 24px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+
+  th, td {
+    padding: 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    background: rgba(0,0,0,0.02);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+  
+  .mandatory {
+    color: #ef4444;
+    margin-left: 4px;
+  }
+
+  .compact-field {
+    width: 100%;
+    margin-bottom: -1.25em; /* Hack to remove extra space below mat-form-field in table */
+  }
+}
+
+.panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.bottom-actions {
+  margin-top: 40px;
+  display: flex;
+  justify-content: flex-end;
+
+  .submit-btn {
+    height: 44px;
+    padding: 0 28px !important;
+    font-weight: 600;
+    border-radius: 10px !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.success-card {
+  text-align: center;
+  padding: 48px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+
+  .success-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    color: #10b981;
+    margin-bottom: 24px;
+  }
+
+  h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+  }
+  
+  p {
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+    font-size: 0.95rem;
+  }
+
+  .success-actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    
+    button {
+      height: 44px;
+      padding: 0 28px;
+      font-weight: 600;
+      border-radius: 10px;
+    }
+  }
+}

@@ -1,0 +1,111 @@
+<div class="rate-loader-page animate-fade-in-up">
+  <button mat-button class="back-btn" routerLink="/dashboard">
+    <mat-icon>arrow_back</mat-icon> Back to Dashboard
+  </button>
+
+  <div class="page-header animate-fade-in-up">
+    <div class="header-icon">
+      <mat-icon>upload_file</mat-icon>
+    </div>
+    <h1>Rate Loader</h1>
+    <p class="page-subtitle">Upload an Excel file to map sheet columns to the ASRATE table</p>
+  </div>
+
+  <ng-container *ngIf="!isSubmitted">
+    <div class="upload-card animate-fade-in-up">
+      <div class="file-upload-wrapper">
+        <button mat-flat-button color="primary" (click)="fileInput.click()">
+          <mat-icon>upload_file</mat-icon>
+          Choose Excel File
+        </button>
+        <input #fileInput type="file" (change)="onFileChange($event)" accept=".xls,.xlsx" style="display:none;" />
+        <span class="file-name" *ngIf="fileName">{{ fileName }}</span>
+      </div>
+    </div>
+
+    <div class="mapping-section animate-fade-in-up" *ngIf="sheetNames.length > 0">
+      <div class="mapping-header">
+        <h2>Sheet Mappings</h2>
+        <button mat-stroked-button color="primary" (click)="addMapping()">
+          <mat-icon>add</mat-icon> Add Sheet
+        </button>
+      </div>
+
+      <mat-accordion multi="true">
+        <mat-expansion-panel *ngFor="let mapping of mappings; let i = index" expanded="true" class="mapping-panel">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              Mapping {{ i + 1 }} {{ mapping.sheetName ? '- ' + mapping.sheetName : '' }}
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <div class="panel-content">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Select Sheet</mat-label>
+              <mat-select [(ngModel)]="mapping.sheetName" (selectionChange)="onSheetSelect(mapping)">
+                <mat-option *ngFor="let sheet of sheetNames" [value]="sheet">{{ sheet }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <table class="mapping-table" *ngIf="mapping.sourceColumns.length > 0">
+              <thead>
+                <tr>
+                  <th>Target (ASRATE Table)</th>
+                  <th>Source (Excel Sheet)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let target of targetColumns">
+                  <td>
+                    {{ target.name }}
+                    <span class="mandatory" *ngIf="target.mandatory">*</span>
+                  </td>
+                  <td>
+                    <ng-container *ngIf="target.name === 'RATEDESCRIPTION'; else selectTemplate">
+                       <mat-form-field appearance="outline" class="compact-field">
+                          <input matInput [(ngModel)]="mapping.columnMappings[target.name]" placeholder="Enter Rate Description">
+                       </mat-form-field>
+                    </ng-container>
+                    <ng-template #selectTemplate>
+                      <mat-form-field appearance="outline" class="compact-field">
+                        <mat-select [(ngModel)]="mapping.columnMappings[target.name]" placeholder="Select Column">
+                          <mat-option [value]="undefined">-- None --</mat-option>
+                          <mat-option *ngFor="let col of mapping.sourceColumns" [value]="col">{{ col }}</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </ng-template>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="panel-actions">
+              <button mat-button color="warn" (click)="removeMapping(i)">
+                <mat-icon>delete</mat-icon> Remove Mapping
+              </button>
+            </div>
+          </div>
+        </mat-expansion-panel>
+      </mat-accordion>
+
+      <div class="bottom-actions" *ngIf="mappings.length > 0">
+        <button mat-flat-button color="primary" class="submit-btn" (click)="submit()">
+          <mat-icon>check_circle</mat-icon>
+          <span>Submit</span>
+        </button>
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="isSubmitted">
+    <div class="success-card animate-fade-in-up">
+      <mat-icon class="success-icon">check_circle</mat-icon>
+      <h2>Mapping Submitted Successfully</h2>
+      <p>The rate mappings have been temporarily saved. Further backend integration will process them.</p>
+      <div class="success-actions">
+        <button mat-stroked-button (click)="cancel()">Cancel / Go Back</button>
+        <button mat-flat-button color="primary" (click)="goHome()">Go to Home Page</button>
+      </div>
+    </div>
+  </ng-container>
+</div>

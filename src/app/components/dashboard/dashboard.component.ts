@@ -26,6 +26,15 @@ export class DashboardComponent {
       enabled: false,
       gradient: 'linear-gradient(135deg, #06b6d4, #0891b2)',
       shadowColor: 'rgba(6, 182, 212, 0.3)'
+    },
+    {
+      title: 'Rate Loader',
+      description: 'Upload Excel files and map sheet columns to the ASRATE table schemas.',
+      icon: 'upload_file',
+      route: '/rate-loader',
+      enabled: true,
+      gradient: 'linear-gradient(135deg, #f59e0b, #ea580c)',
+      shadowColor: 'rgba(245, 158, 11, 0.3)'
     }
   ];
 
