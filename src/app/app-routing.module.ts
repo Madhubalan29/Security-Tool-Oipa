@@ -7,6 +7,8 @@ import { CreateGroupComponent } from './components/create-group/create-group.com
 import { ModifyGroupComponent } from './components/modify-group/modify-group.component';
 import { SecurityConfigComponent } from './components/security-config/security-config.component';
 import { RateLoaderComponent } from './components/rate-loader/rate-loader.component';
+import { UserListComponent } from './components/user-list/user-list.component';
+import { UserFormComponent } from './components/user-form/user-form.component';
 
 const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -19,6 +21,9 @@ const routes: Routes = [
   { path: 'security-group/view', component: ModifyGroupComponent },
   { path: 'security-group/configure', component: SecurityConfigComponent },
   { path: 'rate-loader', component: RateLoaderComponent },
+  { path: 'users', component: UserListComponent },
+  { path: 'users/create', component: UserFormComponent },
+  { path: 'users/modify/:loginName', component: UserFormComponent },
   { path: '**', redirectTo: '/login' }
 ];
 
