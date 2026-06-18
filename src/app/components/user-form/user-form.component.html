@@ -1,0 +1,205 @@
+<div class="user-form-page animate-fade-in-up">
+  <!-- Back Button & Page Header -->
+  <button mat-button class="back-btn" (click)="onCancel()">
+    <mat-icon>arrow_back</mat-icon>
+    Back to Users
+  </button>
+
+  <div class="page-header">
+    <h1>{{ isEditMode ? 'Modify User Profile' : 'Create New User Account' }}</h1>
+    <p class="page-subtitle">
+      {{ isEditMode ? 'Update user credentials, client information, and security group roles.' : 'Register a new OIPA user and map security permissions.' }}
+    </p>
+  </div>
+
+  <!-- Loader -->
+  <div class="loader-container" *ngIf="isLoading && !userForm.get('loginName')?.value && isEditMode">
+    <mat-progress-bar mode="indeterminate" color="primary"></mat-progress-bar>
+    <p>Loading user profile from OIPA...</p>
+  </div>
+
+  <!-- Error Panel -->
+  <div class="error-container glass" *ngIf="errorMessage">
+    <mat-icon class="error-icon">warning</mat-icon>
+    <p>{{ errorMessage }}</p>
+  </div>
+
+  <!-- Main Form Content -->
+  <form [formGroup]="userForm" (ngSubmit)="onSubmit()" *ngIf="!isLoading || userForm.get('loginName')?.value || !isEditMode" autocomplete="off">
+    <div class="form-grid">
+      <!-- Section 1: User Account & Settings -->
+      <div class="form-card glass">
+        <div class="card-header">
+          <mat-icon>account_box</mat-icon>
+          <h2>Account Settings</h2>
+        </div>
+        <div class="card-content">
+          <!-- Login Name -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Login Name</mat-label>
+            <input matInput formControlName="loginName" placeholder="e.g. jdoe101" required autocomplete="new-username">
+            <mat-error *ngIf="userForm.get('loginName')?.hasError('required')">Login Name is required</mat-error>
+            <mat-error *ngIf="userForm.get('loginName')?.hasError('pattern')">Alphanumeric, dashes, and underscores only</mat-error>
+          </mat-form-field>
+
+          <!-- Password (Hidden or optional on edit) -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>{{ isEditMode ? 'New Password (Optional)' : 'Password' }}</mat-label>
+            <input matInput type="password" formControlName="password" placeholder="{{ isEditMode ? 'Leave blank to keep current' : 'Enter account password' }}" [required]="!isEditMode" autocomplete="new-password">
+            <mat-error *ngIf="userForm.get('password')?.hasError('required') && !isEditMode">Password is required</mat-error>
+          </mat-form-field>
+
+          <!-- Password Encryption -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Password Encryption</mat-label>
+            <mat-select formControlName="passwordEncryption">
+              <mat-option *ngFor="let enc of encryptions" [value]="enc">{{ enc }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Locale Code -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Locale / Language</mat-label>
+            <mat-select formControlName="localeCode">
+              <mat-option *ngFor="let loc of locales" [value]="loc.value">{{ loc.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- User Status -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Status</mat-label>
+            <mat-select formControlName="userStatus">
+              <mat-option *ngFor="let stat of statuses" [value]="stat.value">{{ stat.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <!-- Section 2: Client Profile Info -->
+      <div class="form-card glass">
+        <div class="card-header">
+          <mat-icon>person</mat-icon>
+          <h2>Personal Profile</h2>
+        </div>
+        <div class="card-content">
+          <!-- First Name -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>First Name</mat-label>
+            <input matInput formControlName="firstName" placeholder="e.g. John" required>
+            <mat-error *ngIf="userForm.get('firstName')?.hasError('required')">First Name is required</mat-error>
+          </mat-form-field>
+
+          <!-- Last Name -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Last Name</mat-label>
+            <input matInput formControlName="lastName" placeholder="e.g. Doe" required>
+            <mat-error *ngIf="userForm.get('lastName')?.hasError('required')">Last Name is required</mat-error>
+          </mat-form-field>
+
+          <!-- Email -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Email Address</mat-label>
+            <input matInput formControlName="email" type="email" placeholder="e.g. john.doe@company.com" required>
+            <mat-error *ngIf="userForm.get('email')?.hasError('required')">Email is required</mat-error>
+            <mat-error *ngIf="userForm.get('email')?.hasError('email')">Invalid email address</mat-error>
+          </mat-form-field>
+
+          <!-- Primary Company -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Primary Company</mat-label>
+            <mat-select formControlName="primaryCompany">
+              <mat-option *ngFor="let comp of companies" [value]="comp.companyName">{{ comp.companyName }}</mat-option>
+            </mat-select>
+            <mat-error *ngIf="userForm.get('primaryCompany')?.hasError('required')">Primary Company is required</mat-error>
+          </mat-form-field>
+
+          <!-- Sex / Gender -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Gender</mat-label>
+            <mat-select formControlName="sex">
+              <mat-option *ngFor="let g of genders" [value]="g.value">{{ g.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Security Groups Mapping -->
+    <div class="form-card glass security-group-card animate-fade-in">
+      <div class="card-header">
+        <mat-icon>admin_panel_settings</mat-icon>
+        <h2>Assigned Security Groups</h2>
+      </div>
+
+      <div class="card-content">
+        <!-- Security Groups Mapped Table -->
+        <div class="assigned-table-container">
+          <table class="assigned-table">
+            <thead>
+              <tr>
+                <th>Security Group Name</th>
+                <th>Role Effective From</th>
+                <th class="actions-header">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let ag of assignedGroups; let i = index">
+                <td class="group-name-cell">
+                  <mat-icon class="shield-icon">shield</mat-icon>
+                  {{ ag.securityGroupName }}
+                </td>
+                <td>{{ getEffectiveDateLabel(ag.roleEffectiveFrom) }}</td>
+                <td class="actions-cell">
+                  <button mat-icon-button type="button" color="warn" (click)="removeSecurityGroup(i)" matTooltip="Remove Assignment">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="assignedGroups.length === 0">
+                <td colspan="3" class="no-mappings">
+                  No security groups assigned yet. Assign a security group below to map permissions.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Add Security Group Mapping Form Row -->
+        <div class="add-mapping-bar border-top">
+          <h3>Add Security Group Assignment</h3>
+          <div class="add-controls">
+            <mat-form-field appearance="outline" class="add-group-select">
+              <mat-label>Select Security Group</mat-label>
+              <mat-select [(ngModel)]="selectedGroupToAdd" [ngModelOptions]="{standalone: true}">
+                <mat-option *ngFor="let group of availableSecurityGroupsForAssign" [value]="group.groupName">
+                  {{ group.groupName }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="add-date-input">
+              <mat-label>Effective From</mat-label>
+              <input matInput type="date" [(ngModel)]="effectiveDateToAdd" [ngModelOptions]="{standalone: true}">
+            </mat-form-field>
+
+            <button mat-flat-button color="accent" type="button" class="add-btn" [disabled]="!selectedGroupToAdd || !effectiveDateToAdd" (click)="addSecurityGroup()">
+              <mat-icon>add</mat-icon>
+              Assign Group
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Actions Bar -->
+    <div class="actions-bar glass">
+      <button mat-button type="button" class="cancel-btn" (click)="onCancel()" [disabled]="isLoading">
+        Cancel
+      </button>
+      <button mat-raised-button color="primary" type="submit" class="save-btn" [disabled]="userForm.invalid || isLoading">
+        <span *ngIf="!isLoading">Save User Profile</span>
+        <mat-spinner diameter="24" *ngIf="isLoading" color="accent" class="save-spinner"></mat-spinner>
+      </button>
+    </div>
+  </form>
+</div>
