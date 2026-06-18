@@ -149,6 +149,10 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   bulkPlanButtonGuid = '';
   bulkPlanButtonTarget: 'pages' | 'txns' | 'both' = 'both';
 
+  productButtonSearchQuery = '';
+  planButtonSearchQuery = '';
+  companyButtonSearchQuery = '';
+
   // ── Feature 3: Clone source ──
   cloneSourceGuid = '';
   copied = false;
@@ -1494,7 +1498,29 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       }
     });
 
-    return companyNodes;
+    return this.filterUnknownNodes(companyNodes);
+  }
+
+  private filterUnknownNodes(nodes: HierarchicalDiffNode[]): HierarchicalDiffNode[] {
+    return nodes
+      .filter(node => !node.name || !node.name.startsWith('Unknown'))
+      .map(node => {
+        if (node.children) {
+          return {
+            ...node,
+            children: this.filterUnknownNodes(node.children)
+          };
+        }
+        return node;
+      })
+      .filter(node => {
+        if (node.children) {
+          if (node.children.length === 0) {
+            return (node.type === 'add' || node.type === 'remove');
+          }
+        }
+        return true;
+      });
   }
 
   private addCompanyDiffNodes(nodes: HierarchicalDiffNode[], company: CompanyDto, companyGuid: string): void {
@@ -2178,7 +2204,10 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         this.isSaving = false;
         console.log('Scripts generation successful:', result);
         
-        const diffs = this.comparePayloads(this.existingPayload, payload);
+        const diffs = this.comparePayloads(
+          (this.mode === 'clone' || this.mode === 'create') ? null : this.existingPayload,
+          payload
+        );
 
         // Open the dialog to display generated scripts and ask for confirmation
         const dialogRef = this.dialog.open(this.scriptsDialogTemplate, {
@@ -2700,6 +2729,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       plan.productPlanTransactions?.forEach(t => (t as any).buttons?.forEach(addBtn));
     });
     return result.length > 0 ? result : this.allButtons;
+  }
+
+  getFilteredAvailableButtons(query: string): ButtonDto[] {
+    const buttons = this.getAvailableButtons();
+    if (!query) return buttons;
+    const q = query.toLowerCase().trim();
+    return buttons.filter(b => (b.name || '').toLowerCase().includes(q));
   }
 
   // ── Company Pages: Bulk Button Toggle ──

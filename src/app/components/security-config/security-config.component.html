@@ -394,9 +394,28 @@
               <div class="bulk-btn-action-controls">
                 <mat-form-field appearance="outline" class="bulk-btn-select">
                   <mat-label>Select Button</mat-label>
-                  <mat-select [(value)]="bulkCompanyButtonGuid">
+                  <mat-select [(value)]="bulkCompanyButtonGuid" (openedChange)="$event ? companyButtonSearchInput.focus() : (companyButtonSearchQuery = '')">
+                    <div class="dropdown-search-box" (click)="$event.stopPropagation()">
+                      <mat-icon class="search-icon">search</mat-icon>
+                      <input 
+                        #companyButtonSearchInput
+                        matInput 
+                        placeholder="Search button..." 
+                        [(ngModel)]="companyButtonSearchQuery"
+                        (keydown)="$event.stopPropagation()"
+                        class="dropdown-search-input"
+                      >
+                      <button 
+                        *ngIf="companyButtonSearchQuery" 
+                        mat-icon-button 
+                        (click)="companyButtonSearchQuery = ''; $event.stopPropagation()"
+                        class="clear-btn"
+                      >
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </div>
                     <mat-option value="">-- choose button --</mat-option>
-                    <mat-option *ngFor="let btn of getAvailableButtons()" [value]="btn.buttonGuid">
+                    <mat-option *ngFor="let btn of getFilteredAvailableButtons(companyButtonSearchQuery)" [value]="btn.buttonGuid">
                       {{ btn.name }}
                     </mat-option>
                   </mat-select>
@@ -569,9 +588,28 @@
               <div class="bulk-btn-action-controls">
                 <mat-form-field appearance="outline" class="bulk-btn-select">
                   <mat-label>Select Button</mat-label>
-                  <mat-select [(value)]="bulkProductButtonGuid">
+                  <mat-select [(value)]="bulkProductButtonGuid" (openedChange)="$event ? productButtonSearchInput.focus() : (productButtonSearchQuery = '')">
+                    <div class="dropdown-search-box" (click)="$event.stopPropagation()">
+                      <mat-icon class="search-icon">search</mat-icon>
+                      <input 
+                        #productButtonSearchInput
+                        matInput 
+                        placeholder="Search button..." 
+                        [(ngModel)]="productButtonSearchQuery"
+                        (keydown)="$event.stopPropagation()"
+                        class="dropdown-search-input"
+                      >
+                      <button 
+                        *ngIf="productButtonSearchQuery" 
+                        mat-icon-button 
+                        (click)="productButtonSearchQuery = ''; $event.stopPropagation()"
+                        class="clear-btn"
+                      >
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </div>
                     <mat-option value="">-- choose button --</mat-option>
-                    <mat-option *ngFor="let btn of getAvailableButtons()" [value]="btn.buttonGuid">
+                    <mat-option *ngFor="let btn of getFilteredAvailableButtons(productButtonSearchQuery)" [value]="btn.buttonGuid">
                       {{ btn.name }}
                     </mat-option>
                   </mat-select>
@@ -791,9 +829,28 @@
                 <div class="bulk-btn-action-controls">
                   <mat-form-field appearance="outline" class="bulk-btn-select">
                     <mat-label>Select Button</mat-label>
-                    <mat-select [(value)]="bulkPlanButtonGuid">
+                    <mat-select [(value)]="bulkPlanButtonGuid" (openedChange)="$event ? planButtonSearchInput.focus() : (planButtonSearchQuery = '')">
+                      <div class="dropdown-search-box" (click)="$event.stopPropagation()">
+                        <mat-icon class="search-icon">search</mat-icon>
+                        <input 
+                          #planButtonSearchInput
+                          matInput 
+                          placeholder="Search button..." 
+                          [(ngModel)]="planButtonSearchQuery"
+                          (keydown)="$event.stopPropagation()"
+                          class="dropdown-search-input"
+                        >
+                        <button 
+                          *ngIf="planButtonSearchQuery" 
+                          mat-icon-button 
+                          (click)="planButtonSearchQuery = ''; $event.stopPropagation()"
+                          class="clear-btn"
+                        >
+                          <mat-icon>close</mat-icon>
+                        </button>
+                      </div>
                       <mat-option value="">-- choose button --</mat-option>
-                      <mat-option *ngFor="let btn of getAvailableButtons()" [value]="btn.buttonGuid">
+                      <mat-option *ngFor="let btn of getFilteredAvailableButtons(planButtonSearchQuery)" [value]="btn.buttonGuid">
                         {{ btn.name }}
                       </mat-option>
                     </mat-select>

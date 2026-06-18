@@ -46,11 +46,22 @@
       >
         <mat-icon class="group-icon">security</mat-icon>
         <div class="group-info">
-          <span class="group-name">{{ group.groupName }}</span>
+          <span class="group-name">
+            {{ group.groupName }}
+            <span *ngIf="group.groupName.trim().toUpperCase() === 'IT ADMIN'" class="base-badge">
+              <mat-icon>lock</mat-icon> Base Group
+            </span>
+          </span>
           <span class="group-guid">{{ group.securityGroupGuid }}</span>
         </div>
         <mat-icon *ngIf="selectedGuid === group.securityGroupGuid" class="check-icon">check_circle</mat-icon>
       </div>
+    </div>
+
+    <!-- Warning message for IT ADMIN in modify mode -->
+    <div *ngIf="!isCloneMode && !isViewMode && isItAdminSelected" class="warning-banner">
+      <mat-icon>warning</mat-icon>
+      <span>The <strong>IT ADMIN</strong> security group is the system base group and cannot be modified. You may clone it or view its permissions instead.</span>
     </div>
 
     <!-- Action -->
@@ -62,7 +73,7 @@
         </mat-form-field>
       </div>
       <button mat-button routerLink="/security-group" class="cancel-btn" [disabled]="isProcessing">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="!selectedGuid || (isCloneMode && !newCloneName) || isProcessing" (click)="proceedToConfig()" class="submit-btn">
+      <button mat-raised-button color="primary" [disabled]="!selectedGuid || (isCloneMode && !newCloneName) || (!isCloneMode && !isViewMode && isItAdminSelected) || isProcessing" (click)="proceedToConfig()" class="submit-btn">
         <mat-spinner *ngIf="isProcessing" diameter="20" class="btn-spinner"></mat-spinner>
         <mat-icon *ngIf="!isProcessing">{{ isCloneMode ? 'content_copy' : isViewMode ? 'visibility' : 'settings' }}</mat-icon>
         <span>{{ isProcessing ? (isCloneMode ? 'Cloning...' : isViewMode ? 'Configuring...' : 'Configuring...') : (isCloneMode ? 'Clone & Configure' : isViewMode ? 'View Permissions' : 'Configure Permissions') }}</span>

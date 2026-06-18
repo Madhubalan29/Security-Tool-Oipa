@@ -1704,4 +1704,52 @@
   }
 }
 
+// Dropdown Search Box in mat-select
+.dropdown-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+
+  .search-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted);
+  }
+
+  .dropdown-search-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    outline: none;
+    padding: 4px 0;
+
+    &::placeholder {
+      color: var(--text-muted);
+    }
+  }
+
+  .clear-btn {
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    padding: 0;
+    color: var(--text-muted);
+    
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
 
