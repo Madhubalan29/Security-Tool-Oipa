@@ -47,6 +47,14 @@ export class SecurityGroupService {
   }
 
   /**
+   * Generate migration scripts from a selective checklist payload.
+   * POST /api/security-groups/generate-migration-scripts
+   */
+  generateMigrationScripts(request: SecurityGroupRequestDto): Observable<GenerateScriptsResponseDto> {
+    return this.http.post<GenerateScriptsResponseDto>(`${this.baseUrl}/security-groups/generate-migration-scripts`, request);
+  }
+
+  /**
    * Execute generated SQL scripts directly in the database.
    * POST /api/security-groups/execute-scripts
    */

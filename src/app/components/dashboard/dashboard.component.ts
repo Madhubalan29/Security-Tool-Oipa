@@ -22,8 +22,8 @@ export class DashboardComponent {
       title: 'User',
       description: 'Manage user accounts, assign security groups, and configure individual user permissions.',
       icon: 'group',
-      route: null,
-      enabled: false,
+      route: '/users',
+      enabled: true,
       gradient: 'linear-gradient(135deg, #06b6d4, #0891b2)',
       shadowColor: 'rgba(6, 182, 212, 0.3)'
     },

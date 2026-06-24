@@ -1,0 +1,122 @@
+<div class="user-list-page animate-fade-in-up">
+  <!-- Breadcrumb / Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <h1>User Management</h1>
+      <p class="page-subtitle">Search, create, and modify user accounts and security group associations.</p>
+    </div>
+    <div class="header-actions">
+      <button mat-raised-button color="primary" (click)="onCreateUser()" class="create-btn">
+        <mat-icon>add</mat-icon>
+        Create New User
+      </button>
+    </div>
+  </div>
+
+  <!-- Search & Filter Bar -->
+  <div class="filter-bar glass">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search by login name</mat-label>
+      <input matInput [(ngModel)]="searchQuery" (ngModelChange)="applyFilter()" placeholder="Search by login name...">
+      <mat-icon matPrefix>search</mat-icon>
+      <button *ngIf="searchQuery" matSuffix mat-icon-button aria-label="Clear" (click)="searchQuery = ''; applyFilter()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </mat-form-field>
+  </div>
+
+  <!-- Loader -->
+  <div class="loader-container" *ngIf="isLoading">
+    <mat-progress-bar mode="indeterminate" color="primary"></mat-progress-bar>
+    <p>Loading OIPA user records...</p>
+  </div>
+
+  <!-- Error Message -->
+  <div class="error-container glass" *ngIf="errorMessage && !isLoading">
+    <mat-icon class="error-icon">warning</mat-icon>
+    <p>{{ errorMessage }}</p>
+    <button mat-stroked-button color="warn" (click)="loadUsers()">Retry Loading</button>
+  </div>
+
+  <!-- Users Table -->
+  <div class="table-container glass" *ngIf="!isLoading && !errorMessage">
+    <table mat-table [dataSource]="filteredUsers" class="user-table">
+      <!-- Login Name Column -->
+      <ng-container matColumnDef="loginName">
+        <th mat-header-cell *matHeaderCellDef>Login Name</th>
+        <td mat-cell *matCellDef="let user" class="login-cell">{{ user.loginName }}</td>
+      </ng-container>
+
+      <!-- Full Name Column -->
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Name</th>
+        <td mat-cell *matCellDef="let user">
+          <span *ngIf="user.client?.firstName || user.client?.lastName">
+            {{ user.client?.firstName }} {{ user.client?.lastName }}
+          </span>
+          <span *ngIf="!user.client?.firstName && !user.client?.lastName" class="text-muted">
+            —
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Email Column -->
+      <ng-container matColumnDef="email">
+        <th mat-header-cell *matHeaderCellDef>Email</th>
+        <td mat-cell *matCellDef="let user">
+          <span *ngIf="user.client?.email">{{ user.client?.email }}</span>
+          <span *ngIf="!user.client?.email" class="text-muted">—</span>
+        </td>
+      </ng-container>
+
+      <!-- Company Column -->
+      <ng-container matColumnDef="company">
+        <th mat-header-cell *matHeaderCellDef>Primary Company</th>
+        <td mat-cell *matCellDef="let user">
+          <span *ngIf="user.client?.primaryCompany">{{ user.client?.primaryCompany }}</span>
+          <span *ngIf="!user.client?.primaryCompany" class="text-muted">—</span>
+        </td>
+      </ng-container>
+
+      <!-- Status Column -->
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let user">
+          <span class="status-badge" [class.active]="user.userStatus === '01'" [class.inactive]="user.userStatus !== '01'">
+            <span class="dot"></span>
+            {{ getUserStatusLabel(user.userStatus) }}
+          </span>
+        </td>
+      </ng-container>
+
+
+
+      <!-- Actions Column -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-header">Actions</th>
+        <td mat-cell *matCellDef="let user" class="actions-cell">
+          <button mat-icon-button color="primary" matTooltip="Edit User" (click)="onEditUser(user)">
+            <mat-icon>edit</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="user-row"></tr>
+    </table>
+
+    <!-- Scroll Load More Indicator -->
+    <div class="load-more-spinner" *ngIf="isLoadingMore">
+      <mat-spinner diameter="24" color="primary"></mat-spinner>
+      <span>Loading more users...</span>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" *ngIf="filteredUsers.length === 0">
+      <mat-icon class="empty-icon">group</mat-icon>
+      <h3>No Users Found</h3>
+      <p *ngIf="searchQuery">No user matching "{{ searchQuery }}" was found. Try refining your search query.</p>
+      <p *ngIf="!searchQuery">There are currently no users defined in OIPA. Click "Create New User" to add one.</p>
+    </div>
+  </div>
+</div>

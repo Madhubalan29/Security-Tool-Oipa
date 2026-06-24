@@ -46,6 +46,8 @@ import { ModifyGroupComponent } from './components/modify-group/modify-group.com
 import { SecurityConfigComponent } from './components/security-config/security-config.component';
 import { SqlConfirmDialogComponent } from './components/sql-confirm-dialog/sql-confirm-dialog.component';
 import { RateLoaderComponent } from './components/rate-loader/rate-loader.component';
+import { UserListComponent } from './components/user-list/user-list.component';
+import { UserFormComponent } from './components/user-form/user-form.component';
 
 @NgModule({
   declarations: [
@@ -57,7 +59,9 @@ import { RateLoaderComponent } from './components/rate-loader/rate-loader.compon
     ModifyGroupComponent,
     SecurityConfigComponent,
     SqlConfirmDialogComponent,
-    RateLoaderComponent
+    RateLoaderComponent,
+    UserListComponent,
+    UserFormComponent
   ],
   imports: [
     BrowserModule,

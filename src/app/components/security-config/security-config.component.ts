@@ -18,7 +18,8 @@ import {
   PlanDto,
   PlanPageDto,
   PlanTransactionDto,
-  ButtonDto
+  ButtonDto,
+  MigrationScriptDto
 } from '../../models/security-group.model';
 import {
   AsCompany, AsAuthPage, AsAuthButton, AsProduct, AsPlan,
@@ -39,6 +40,7 @@ interface CompanyConfig {
   pageFilter?: string;
   inquiryFilter?: string;
   webServiceFilter?: string;
+  configured?: boolean;
 }
 
 interface ProductConfig {
@@ -49,6 +51,7 @@ interface ProductConfig {
   productTransactions: (ProductTransactionDto & { name?: string })[];
   pageFilter?: string;
   txnFilter?: string;
+  configured?: boolean;
 }
 
 interface PlanConfig {
@@ -61,6 +64,24 @@ interface PlanConfig {
   planInquiries: (CompanyInquiryDto & { name?: string })[];
   pageFilter?: string;
   txnFilter?: string;
+  configured?: boolean;
+}
+
+export interface DialogFilterNode {
+  id: string;
+  name: string;
+  type: 'company' | 'company_level' | 'product' | 'plan' | 'company_level_pages' | 'product_pages' | 'product_transactions' | 'plan_pages' | 'plan_transactions' | 'page' | 'transaction' | 'button' | 'company_inquiries' | 'company_webservices' | 'plan_inquiries' | 'inquiry' | 'webservice';
+  checked: boolean;
+  expanded?: boolean;
+  companyGuid: string;
+  productGuid?: string;
+  planGuid?: string;
+  pageGuid?: string;
+  transactionGuid?: string;
+  buttonGuid?: string;
+  inquiryGuid?: string;
+  webserviceGuid?: string;
+  children?: DialogFilterNode[];
 }
 
 export interface HierarchicalDiffNode {
@@ -149,9 +170,18 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   bulkPlanButtonGuid = '';
   bulkPlanButtonTarget: 'pages' | 'txns' | 'both' = 'both';
 
+  productButtonSearchQuery = '';
+  planButtonSearchQuery = '';
+  companyButtonSearchQuery = '';
+
   // ── Feature 3: Clone source ──
   cloneSourceGuid = '';
   copied = false;
+  sqlFilterText = '';
+  dialogFilterNodes: DialogFilterNode[] = [];
+  allDialogScripts: MigrationScriptDto[] = [];
+  authTxnToTxnMap = new Map<string, string>();
+  authPageToPageMap = new Map<string, string>();
 
   constructor(
     private router: Router,
@@ -360,6 +390,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     return this._selectedCompanies;
   }
 
+  get viewCompanies(): CompanyConfig[] {
+    if (this.mode === 'view') {
+      return this.companyConfigs.filter(c => c.configured);
+    }
+    return this.selectedCompanies;
+  }
+
   get activeConfig(): CompanyConfig | null {
     if (this._selectedCompanies && this._selectedCompanies.length > 0) {
       return this._selectedCompanies[this.activeCompanyIndex] || null;
@@ -390,7 +427,9 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       this.isSubLoading = false;
       this.activeStep = 1;
       this.activeCompanyIndex = 0;
-  
+      if (this.mode === 'view') {
+        this.deselectAllForMigration();
+      }
       return;
     }
 
@@ -403,7 +442,9 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           this.isSubLoading = false;
           this.activeStep = 1;
           this.activeCompanyIndex = 0;
-      
+          if (this.mode === 'view') {
+            this.deselectAllForMigration();
+          }
         }
       });
     });
@@ -502,14 +543,19 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   }
 
   private applyExistingCompanyConfig(config: CompanyConfig, existing: CompanyDto): void {
+    config.configured = true;
     // Apply company pages — mark page as selected if it exists in the payload
     existing.companyPages?.forEach(ep => {
       const page = config.companyPages.find(p => guidEq(p.pageGuid, ep.pageGuid));
       if (page) {
         page.selected = true; // Page is granted access
+        page.configured = true;
         ep.buttons?.forEach(eb => {
           const btn = page.buttons.find(b => guidEq(b.buttonGuid, eb.buttonGuid));
-          if (btn) btn.selected = true;
+          if (btn) {
+            btn.selected = true;
+            btn.configured = true;
+          }
         });
       }
     });
@@ -517,13 +563,19 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     // Apply inquiries
     existing.companyInquiries?.forEach(ei => {
       const inq = config.companyInquiries.find(i => guidEq(i.inquiryScreenNameGuid, ei.inquiryScreenNameGuid));
-      if (inq) inq.selected = true;
+      if (inq) {
+        inq.selected = true;
+        inq.configured = true;
+      }
     });
 
     // Apply web services
     existing.companyWebServices?.forEach(ews => {
       const ws = config.companyWebServices.find(w => guidEq(w.webServiceGuid, ews.webServiceGuid));
-      if (ws) ws.selected = true;
+      if (ws) {
+        ws.selected = true;
+        ws.configured = true;
+      }
     });
 
     // Apply products
@@ -748,13 +800,18 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   }
 
   private applyExistingProductConfig(productConfig: ProductConfig, existing: ProductDto): void {
+    productConfig.configured = true;
     existing.productPages?.forEach(ep => {
       const page = productConfig.productPages.find(p => guidEq(p.pageGuid, ep.pageGuid));
       if (page) {
         page.selected = true; // Page is granted access
+        page.configured = true;
         ep.buttons?.forEach(eb => {
           const btn = page.buttons.find(b => guidEq(b.buttonGuid, eb.buttonGuid));
-          if (btn) btn.selected = true;
+          if (btn) {
+            btn.selected = true;
+            btn.configured = true;
+          }
         });
       }
     });
@@ -764,9 +821,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       if (txn) {
         et.buttons?.forEach(eb => {
           const btn = txn.buttons.find(b => guidEq(b.buttonGuid, eb.buttonGuid));
-          if (btn) btn.selected = true;
+          if (btn) {
+            btn.selected = true;
+            btn.configured = true;
+          }
         });
         txn.selected = true; // Txn is granted access
+        txn.configured = true;
       }
     });
   }
@@ -927,13 +988,18 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   }
 
   private applyExistingPlanConfig(planConfig: PlanConfig, existing: PlanDto): void {
+    planConfig.configured = true;
     existing.planPages?.forEach(ep => {
       const page = planConfig.planPages.find(p => guidEq(p.pageGuid, ep.pageGuid));
       if (page) {
         page.selected = true; // Page is granted access
+        page.configured = true;
         ep.buttons?.forEach(eb => {
           const btn = page.buttons.find(b => guidEq(b.buttonGuid, eb.buttonGuid));
-          if (btn) btn.selected = true;
+          if (btn) {
+            btn.selected = true;
+            btn.configured = true;
+          }
         });
       }
     });
@@ -942,9 +1008,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       const et = existing.planTransactions?.find(e => guidEq(e.transactionGuid, pt.transactionGuid));
       if (et) {
         pt.selected = true;
+        pt.configured = true;
         et.buttons?.forEach(eb => {
           const btn = pt.buttons.find(b => guidEq(b.buttonGuid, eb.buttonGuid));
-          if (btn) btn.selected = true;
+          if (btn) {
+            btn.selected = true;
+            btn.configured = true;
+          }
         });
       }
     });
@@ -954,9 +1024,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       if (txn) {
         et.buttons?.forEach(eb => {
           const btn = txn.buttons.find(b => guidEq(b.buttonGuid, eb.buttonGuid));
-          if (btn) btn.selected = true;
+          if (btn) {
+            btn.selected = true;
+            btn.configured = true;
+          }
         });
         txn.selected = true; // Txn is granted access
+        txn.configured = true;
       }
     });
 
@@ -964,12 +1038,14 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       const inq = planConfig.planInquiries.find(i => guidEq(i.inquiryScreenNameGuid, ei.inquiryScreenNameGuid));
       if (inq) {
         inq.selected = true;
+        inq.configured = true;
       } else {
         // Fallback to preserve inquiry screen even if lookup metadata isn't populated
         planConfig.planInquiries.push({
           inquiryScreenNameGuid: ei.inquiryScreenNameGuid,
           name: ei.name || 'Unknown Screen',
-          selected: true
+          selected: true,
+          configured: true
         });
       }
     });
@@ -1494,7 +1570,29 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       }
     });
 
-    return companyNodes;
+    return this.filterUnknownNodes(companyNodes);
+  }
+
+  private filterUnknownNodes(nodes: HierarchicalDiffNode[]): HierarchicalDiffNode[] {
+    return nodes
+      .filter(node => !node.name || !node.name.startsWith('Unknown'))
+      .map(node => {
+        if (node.children) {
+          return {
+            ...node,
+            children: this.filterUnknownNodes(node.children)
+          };
+        }
+        return node;
+      })
+      .filter(node => {
+        if (node.children) {
+          if (node.children.length === 0) {
+            return (node.type === 'add' || node.type === 'remove');
+          }
+        }
+        return true;
+      });
   }
 
   private addCompanyDiffNodes(nodes: HierarchicalDiffNode[], company: CompanyDto, companyGuid: string): void {
@@ -2014,7 +2112,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   }
 
   expandAll(): void {
-    this.selectedCompanies.forEach(c => {
+    this.viewCompanies.forEach(c => {
       const cKey = `company_${c.company.companyGuid}`;
       this.expandedNodes[cKey] = true;
       this.expandedNodes[`${cKey}_pages`] = true;
@@ -2152,6 +2250,82 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     );
   }
 
+  // ── Configured Config Helper Queries for Tree Rendering ──
+
+  hasConfiguredPages(pages: CompanyPageDto[] | undefined): boolean {
+    return !!pages && pages.some(p => p.configured);
+  }
+
+  getConfiguredPages(pages: CompanyPageDto[] | undefined): CompanyPageDto[] {
+    if (!pages) return [];
+    return pages.filter(p => p.configured);
+  }
+
+  getConfiguredButtons(buttons: ButtonDto[] | undefined): ButtonDto[] {
+    if (!buttons) return [];
+    return buttons.filter(b => b.configured);
+  }
+
+  hasConfiguredInquiries(inquiries: any[] | undefined): boolean {
+    return !!inquiries && inquiries.some(i => i.configured);
+  }
+
+  getConfiguredInquiries(inquiries: any[] | undefined): any[] {
+    if (!inquiries) return [];
+    return inquiries.filter(i => i.configured);
+  }
+
+  hasConfiguredWebServices(webServices: any[] | undefined): boolean {
+    return !!webServices && webServices.some(w => w.configured);
+  }
+
+  getConfiguredWebServices(webServices: any[] | undefined): any[] {
+    if (!webServices) return [];
+    return webServices.filter(w => w.configured);
+  }
+
+  hasConfiguredProducts(products: ProductConfig[] | undefined): boolean {
+    return !!products && products.some(p => p.configured);
+  }
+
+  getConfiguredProducts(products: ProductConfig[] | undefined): ProductConfig[] {
+    if (!products) return [];
+    return products.filter(p => p.configured);
+  }
+
+  hasConfiguredTransactions(txns: any[] | undefined): boolean {
+    return !!txns && txns.some(t => t.configured);
+  }
+
+  getConfiguredTransactions(txns: any[] | undefined): any[] {
+    if (!txns) return [];
+    return txns.filter(t => t.configured);
+  }
+
+  getMergedConfiguredTransactions(plan: PlanConfig): any[] {
+    const txns = [...plan.planTransactions, ...(plan.productPlanTransactions || [])];
+    return this.getConfiguredTransactions(txns);
+  }
+
+  hasConfiguredPlans(plans: PlanConfig[] | undefined): boolean {
+    return !!plans && plans.some(p => p.configured);
+  }
+
+  getConfiguredPlans(plans: PlanConfig[] | undefined): PlanConfig[] {
+    if (!plans) return [];
+    return plans.filter(p => p.configured);
+  }
+
+  hasAnyConfiguredPermissions(): boolean {
+    return this.viewCompanies.some(config => 
+      this.hasConfiguredPages(config.companyPages) ||
+      this.hasConfiguredInquiries(config.companyInquiries) ||
+      this.hasConfiguredWebServices(config.companyWebServices) ||
+      this.hasConfiguredProducts(config.products) ||
+      this.hasConfiguredPlans(config.plans)
+    );
+  }
+
   openStatusDialog(success: boolean, message: string, callback?: () => void): void {
     const dialogRef = this.dialog.open(this.statusDialogTemplate, {
       width: '450px',
@@ -2178,7 +2352,10 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         this.isSaving = false;
         console.log('Scripts generation successful:', result);
         
-        const diffs = this.comparePayloads(this.existingPayload, payload);
+        const diffs = this.comparePayloads(
+          (this.mode === 'clone' || this.mode === 'create') ? null : this.existingPayload,
+          payload
+        );
 
         // Open the dialog to display generated scripts and ask for confirmation
         const dialogRef = this.dialog.open(this.scriptsDialogTemplate, {
@@ -2235,16 +2412,15 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   generateMigrationScripts(): void {
     this.isSaving = true;
-    const payload = this.buildPayload();
-    
-    // Clear the securityGroupGuid to treat it as a brand new group,
-    // which generates complete INSERT statements for the entire config instead of deltas.
-    payload.securityGroup.securityGroupGuid = undefined;
+    this.sqlFilterText = '';
+    const payload = this.buildMigrationPayload();
 
-    this.securityGroupService.saveGroupConfig(payload).subscribe({
+    this.securityGroupService.generateMigrationScripts(payload).subscribe({
       next: (result) => {
         this.isSaving = false;
         console.log('Migration scripts generation successful:', result);
+
+        this.buildDialogFilterTree(result.migrationScripts || []);
 
         // Open the dialog to display generated migration scripts (with no diffs and execute disabled)
         const dialogRef = this.dialog.open(this.scriptsDialogTemplate, {
@@ -2253,7 +2429,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           data: {
             isViewMode: true,
             scripts: result.scripts || [],
-            formattedScript: (result.scripts || []).map((s: string) => this.formatSql(s)).join('\n\n')
+            migrationScripts: result.migrationScripts || []
           }
         });
       },
@@ -2264,6 +2440,836 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         this.openStatusDialog(false, errMsg);
       }
     });
+  }
+
+  expandAllDialogNodes(): void {
+    const traverse = (node: DialogFilterNode) => {
+      node.expanded = true;
+      if (node.children) {
+        node.children.forEach(traverse);
+      }
+    };
+    this.dialogFilterNodes.forEach(traverse);
+  }
+
+  selectAllDialogNodes(checked: boolean): void {
+    const traverse = (node: DialogFilterNode) => {
+      node.checked = checked;
+      if (node.children) {
+        node.children.forEach(traverse);
+      }
+    };
+    this.dialogFilterNodes.forEach(traverse);
+  }
+
+  collapseAllDialogNodes(): void {
+    const traverse = (node: DialogFilterNode) => {
+      node.expanded = false;
+      if (node.children) {
+        node.children.forEach(traverse);
+      }
+    };
+    this.dialogFilterNodes.forEach(traverse);
+  }
+
+  extractSqlValues(script: string): string[] {
+    if (!script) return [];
+    const valuesMatch = script.match(/VALUES\s*\(([^)]+)\)/i);
+    if (!valuesMatch) return [];
+    const content = valuesMatch[1];
+    const regex = /'([^']*)'/g;
+    const matches: string[] = [];
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+      matches.push(match[1]);
+    }
+    return matches;
+  }
+
+  findCompanyPageGuidForButton(companyGuid: string, buttonGuid: string, script?: string): string | null {
+    if (script) {
+      const values = this.extractSqlValues(script);
+      if (values.length >= 2) {
+        const authPageGuid = values[1];
+        const realGuid = this.authPageToPageMap.get(authPageGuid.toUpperCase());
+        if (realGuid) return realGuid;
+      }
+    }
+    const config = this.companyConfigs.find(c => guidEq(c.company.companyGuid, companyGuid));
+    if (!config) return null;
+    const page = config.companyPages.find(p => p.buttons && p.buttons.some(b => guidEq(b.buttonGuid, buttonGuid)));
+    return page ? page.pageGuid : null;
+  }
+
+  findProductPageGuidForButton(companyGuid: string, productGuid: string, buttonGuid: string, script?: string): string | null {
+    if (script) {
+      const values = this.extractSqlValues(script);
+      if (values.length >= 2) {
+        const authPageGuid = values[0];
+        const realGuid = this.authPageToPageMap.get(authPageGuid.toUpperCase());
+        if (realGuid) return realGuid;
+      }
+    }
+    const config = this.companyConfigs.find(c => guidEq(c.company.companyGuid, companyGuid));
+    if (!config) return null;
+    const prod = config.products.find(p => guidEq(p.productGuid, productGuid));
+    if (!prod) return null;
+    const page = prod.productPages.find(p => p.buttons && p.buttons.some(b => guidEq(b.buttonGuid, buttonGuid)));
+    return page ? page.pageGuid : null;
+  }
+
+  findProductTxnGuidForButton(companyGuid: string, productGuid: string, buttonGuid: string, script?: string): string | null {
+    if (script) {
+      const values = this.extractSqlValues(script);
+      if (values.length >= 2) {
+        const authTxnGuid = values[0];
+        const realGuid = this.authTxnToTxnMap.get(authTxnGuid.toUpperCase());
+        if (realGuid) return realGuid;
+      }
+    }
+    const config = this.companyConfigs.find(c => guidEq(c.company.companyGuid, companyGuid));
+    if (!config) return null;
+    const prod = config.products.find(p => guidEq(p.productGuid, productGuid));
+    if (!prod) return null;
+    const txn = prod.productTransactions.find(t => t.buttons && t.buttons.some(b => guidEq(b.buttonGuid, buttonGuid)));
+    return txn ? txn.transactionGuid : null;
+  }
+
+  findPlanPageGuidForButton(companyGuid: string, planGuid: string, buttonGuid: string, script?: string): string | null {
+    if (script) {
+      const values = this.extractSqlValues(script);
+      if (values.length >= 2) {
+        const authPageGuid = values[0];
+        const realGuid = this.authPageToPageMap.get(authPageGuid.toUpperCase());
+        if (realGuid) return realGuid;
+      }
+    }
+    const config = this.companyConfigs.find(c => guidEq(c.company.companyGuid, companyGuid));
+    if (!config) return null;
+    const plan = config.plans.find(p => guidEq(p.planGuid, planGuid));
+    if (!plan) return null;
+    const page = plan.planPages.find(p => p.buttons && p.buttons.some(b => guidEq(b.buttonGuid, buttonGuid)));
+    return page ? page.pageGuid : null;
+  }
+
+  findPlanTxnGuidForButton(companyGuid: string, planGuid: string, buttonGuid: string, script?: string): string | null {
+    if (script) {
+      const values = this.extractSqlValues(script);
+      if (values.length >= 2) {
+        const authTxnGuid = values[0];
+        const realGuid = this.authTxnToTxnMap.get(authTxnGuid.toUpperCase());
+        if (realGuid) return realGuid;
+      }
+    }
+    const config = this.companyConfigs.find(c => guidEq(c.company.companyGuid, companyGuid));
+    if (!config) return null;
+    const plan = config.plans.find(p => guidEq(p.planGuid, planGuid));
+    if (!plan) return null;
+    const txn = plan.planTransactions.find(t => t.buttons && t.buttons.some(b => guidEq(b.buttonGuid, buttonGuid)));
+    if (txn) return txn.transactionGuid;
+    const prodTxn = plan.productPlanTransactions?.find(t => t.buttons && t.buttons.some(b => guidEq(b.buttonGuid, buttonGuid)));
+    return prodTxn ? prodTxn.transactionGuid : null;
+  }
+
+  getFilterNodeIcon(type: string): string {
+    switch (type) {
+      case 'company': return 'business';
+      case 'company_level': return 'settings';
+      case 'product': return 'shopping_bag';
+      case 'plan': return 'view_agenda';
+      case 'company_level_pages':
+      case 'product_pages':
+      case 'plan_pages':
+        return 'folder';
+      case 'product_transactions':
+      case 'plan_transactions':
+        return 'folder_special';
+      case 'page': return 'description';
+      case 'transaction': return 'receipt_long';
+      case 'button': return 'radio_button_checked';
+      case 'company_inquiries':
+      case 'plan_inquiries':
+        return 'search';
+      case 'company_webservices':
+        return 'dns';
+      case 'inquiry': return 'find_in_page';
+      case 'webservice': return 'cloud_queue';
+      default: return 'help_outline';
+    }
+  }
+
+  getFilterNodeIconClass(type: string): string {
+    switch (type) {
+      case 'company': return 'company';
+      case 'company_level': return 'level';
+      case 'product': return 'product';
+      case 'plan': return 'plan';
+      case 'page': return 'page';
+      case 'transaction': return 'transaction';
+      case 'button': return 'button';
+      default: return 'default-icon';
+    }
+  }
+
+  getScriptNodeId(s: MigrationScriptDto): string | null {
+    if (s.entityType === 'SECURITY_GROUP') {
+      return 'security_group';
+    }
+    if (s.entityType === 'COMPANY') {
+      return `company_${s.companyGuid}`;
+    }
+    if (s.entityType === 'COMPANY_PAGE') {
+      return `company_${s.companyGuid}_page_${s.entityGuid}`;
+    }
+    if (s.entityType === 'COMPANY_BUTTON') {
+      const pageGuid = this.findCompanyPageGuidForButton(s.companyGuid, s.entityGuid, s.script);
+      return pageGuid ? `company_${s.companyGuid}_page_${pageGuid}_button_${s.entityGuid}` : null;
+    }
+    if (s.entityType === 'COMPANY_INQUIRY') {
+      return `company_${s.companyGuid}_inquiry_${s.entityGuid}`;
+    }
+    if (s.entityType === 'COMPANY_WEBSERVICE') {
+      return `company_${s.companyGuid}_webservice_${s.entityGuid}`;
+    }
+    if (s.entityType === 'PRODUCT') {
+      return `company_${s.companyGuid}_product_${s.productGuid}`;
+    }
+    if (s.entityType === 'PRODUCT_PAGE') {
+      return `company_${s.companyGuid}_product_${s.productGuid}_page_${s.entityGuid}`;
+    }
+    if (s.entityType === 'PRODUCT_BUTTON') {
+      const pageGuid = this.findProductPageGuidForButton(s.companyGuid, s.productGuid, s.entityGuid, s.script);
+      return pageGuid ? `company_${s.companyGuid}_product_${s.productGuid}_page_${pageGuid}_button_${s.entityGuid}` : null;
+    }
+    if (s.entityType === 'PRODUCT_TRANSACTION') {
+      return `company_${s.companyGuid}_product_${s.productGuid}_txn_${s.entityGuid}`;
+    }
+    if (s.entityType === 'PRODUCT_TRANSACTION_BUTTON') {
+      const txnGuid = this.findProductTxnGuidForButton(s.companyGuid, s.productGuid, s.entityGuid, s.script);
+      return txnGuid ? `company_${s.companyGuid}_product_${s.productGuid}_txn_${txnGuid}_button_${s.entityGuid}` : null;
+    }
+    if (s.entityType === 'PLAN') {
+      return `company_${s.companyGuid}_plan_${s.planGuid}`;
+    }
+    if (s.entityType === 'PLAN_PAGE') {
+      return `company_${s.companyGuid}_plan_${s.planGuid}_page_${s.entityGuid}`;
+    }
+    if (s.entityType === 'PLAN_PAGE_BUTTON') {
+      const pageGuid = this.findPlanPageGuidForButton(s.companyGuid, s.planGuid, s.entityGuid, s.script);
+      return pageGuid ? `company_${s.companyGuid}_plan_${s.planGuid}_page_${pageGuid}_button_${s.entityGuid}` : null;
+    }
+    if (s.entityType === 'PLAN_TRANSACTION') {
+      return `company_${s.companyGuid}_plan_${s.planGuid}_txn_${s.entityGuid}`;
+    }
+    if (s.entityType === 'PLAN_TRANSACTION_BUTTON') {
+      const txnGuid = this.findPlanTxnGuidForButton(s.companyGuid, s.planGuid, s.entityGuid, s.script);
+      return txnGuid ? `company_${s.companyGuid}_plan_${s.planGuid}_txn_${txnGuid}_button_${s.entityGuid}` : null;
+    }
+    if (s.entityType === 'PLAN_INQUIRY') {
+      return `company_${s.companyGuid}_plan_${s.planGuid}_inquiry_${s.entityGuid}`;
+    }
+    return null;
+  }
+
+  buildDialogFilterTree(migrationScripts: MigrationScriptDto[]): void {
+    this.allDialogScripts = migrationScripts;
+    const tree: DialogFilterNode[] = [];
+
+    // Clear and build parent-child maps from insert scripts
+    this.authTxnToTxnMap.clear();
+    this.authPageToPageMap.clear();
+
+    migrationScripts.forEach(s => {
+      if (!s.script) return;
+      const match = s.script.match(/INSERT\s+INTO\s+(\w+)/i);
+      if (match) {
+        const tableName = match[1].toUpperCase();
+        const values = this.extractSqlValues(s.script);
+        if (values.length >= 3) {
+          if (tableName === 'ASAUTHCOMPANYPAGE' || tableName === 'ASAUTHPLANPAGE' || tableName === 'ASAUTHPRODUCTPAGE') {
+            this.authPageToPageMap.set(values[0].toUpperCase(), values[2]);
+          } else if (tableName === 'ASAUTHTRANSACTION' || tableName === 'ASAUTHPRODUCTTRANSACTION') {
+            this.authTxnToTxnMap.set(values[0].toUpperCase(), values[2]);
+          }
+        }
+      }
+    });
+
+    const companyGuids = Array.from(new Set(migrationScripts.map(s => s.companyGuid).filter(Boolean)));
+
+    companyGuids.forEach(companyGuid => {
+      const companyNode: DialogFilterNode = {
+        id: `company_${companyGuid}`,
+        name: this.getCompanyName(companyGuid),
+        type: 'company',
+        checked: true,
+        expanded: true,
+        companyGuid: companyGuid!,
+        children: []
+      };
+
+      // 1. Company Level node
+      const companyLevelNode: DialogFilterNode = {
+        id: `company_${companyGuid}_level`,
+        name: 'Company-level Configuration',
+        type: 'company_level',
+        checked: true,
+        expanded: true,
+        companyGuid: companyGuid!,
+        children: []
+      };
+
+      // Pages under Company Level
+      const companyPageScripts = migrationScripts.filter(s => 
+        guidEq(s.companyGuid, companyGuid) && !s.productGuid && !s.planGuid && s.entityType === 'COMPANY_PAGE'
+      );
+      const companyButtonScripts = migrationScripts.filter(s => 
+        guidEq(s.companyGuid, companyGuid) && !s.productGuid && !s.planGuid && s.entityType === 'COMPANY_BUTTON'
+      );
+
+      const companyPageGuids = new Set<string>();
+      companyPageScripts.forEach(s => companyPageGuids.add(s.entityGuid));
+      companyButtonScripts.forEach(s => {
+        const pageGuid = this.findCompanyPageGuidForButton(companyGuid, s.entityGuid, s.script);
+        if (pageGuid) companyPageGuids.add(pageGuid);
+      });
+
+      if (companyPageGuids.size > 0) {
+        const pagesFolder: DialogFilterNode = {
+          id: `company_${companyGuid}_level_pages_folder`,
+          name: 'Pages',
+          type: 'company_level_pages',
+          checked: true,
+          expanded: false,
+          companyGuid: companyGuid!,
+          children: []
+        };
+
+        companyPageGuids.forEach(pageGuid => {
+          const pageNode: DialogFilterNode = {
+            id: `company_${companyGuid}_page_${pageGuid}`,
+            name: this.getPageName(pageGuid),
+            type: 'page',
+            checked: true,
+            expanded: false,
+            companyGuid: companyGuid!,
+            pageGuid: pageGuid,
+            children: []
+          };
+
+          const btnScripts = companyButtonScripts.filter(s => {
+            const pgGuid = this.findCompanyPageGuidForButton(companyGuid, s.entityGuid, s.script);
+            return guidEq(pgGuid, pageGuid);
+          });
+
+          btnScripts.forEach(s => {
+            pageNode.children!.push({
+              id: `company_${companyGuid}_page_${pageGuid}_button_${s.entityGuid}`,
+              name: this.getButtonName(s.entityGuid),
+              type: 'button',
+              checked: true,
+              companyGuid: companyGuid!,
+              pageGuid: pageGuid,
+              buttonGuid: s.entityGuid
+            });
+          });
+
+          pagesFolder.children!.push(pageNode);
+        });
+
+        companyLevelNode.children!.push(pagesFolder);
+      }
+
+      // Inquiries under Company Level
+      const companyInqScripts = migrationScripts.filter(s => 
+        guidEq(s.companyGuid, companyGuid) && !s.productGuid && !s.planGuid && s.entityType === 'COMPANY_INQUIRY'
+      );
+      if (companyInqScripts.length > 0) {
+        const inqsFolder: DialogFilterNode = {
+          id: `company_${companyGuid}_level_inqs_folder`,
+          name: 'Inquiries',
+          type: 'company_inquiries',
+          checked: true,
+          expanded: false,
+          companyGuid: companyGuid!,
+          children: []
+        };
+        companyInqScripts.forEach(s => {
+          inqsFolder.children!.push({
+            id: `company_${companyGuid}_inquiry_${s.entityGuid}`,
+            name: this.getInquiryName(companyGuid, s.entityGuid),
+            type: 'inquiry',
+            checked: true,
+            companyGuid: companyGuid!,
+            inquiryGuid: s.entityGuid
+          });
+        });
+        companyLevelNode.children!.push(inqsFolder);
+      }
+
+      // Web Services under Company Level
+      const companyWsScripts = migrationScripts.filter(s => 
+        guidEq(s.companyGuid, companyGuid) && !s.productGuid && !s.planGuid && s.entityType === 'COMPANY_WEBSERVICE'
+      );
+      if (companyWsScripts.length > 0) {
+        const wsFolder: DialogFilterNode = {
+          id: `company_${companyGuid}_level_ws_folder`,
+          name: 'Web Services',
+          type: 'company_webservices',
+          checked: true,
+          expanded: false,
+          companyGuid: companyGuid!,
+          children: []
+        };
+        companyWsScripts.forEach(s => {
+          wsFolder.children!.push({
+            id: `company_${companyGuid}_webservice_${s.entityGuid}`,
+            name: this.getWebServiceName(s.entityGuid),
+            type: 'webservice',
+            checked: true,
+            companyGuid: companyGuid!,
+            webserviceGuid: s.entityGuid
+          });
+        });
+        companyLevelNode.children!.push(wsFolder);
+      }
+
+      if (companyLevelNode.children!.length > 0) {
+        companyNode.children!.push(companyLevelNode);
+      }
+
+      // Helper to build Plan nodes
+      const buildPlanNode = (planGuid: string, productGuid?: string): DialogFilterNode => {
+        const planNode: DialogFilterNode = {
+          id: `company_${companyGuid}_plan_${planGuid}`,
+          name: this.getPlanName(companyGuid, planGuid),
+          type: 'plan',
+          checked: true,
+          expanded: true,
+          companyGuid: companyGuid!,
+          planGuid: planGuid,
+          children: []
+        };
+        if (productGuid) {
+          planNode.productGuid = productGuid;
+        }
+
+        // Plan Pages
+        const planPageScripts = migrationScripts.filter(s => 
+          guidEq(s.companyGuid, companyGuid) && guidEq(s.planGuid, planGuid) && s.entityType === 'PLAN_PAGE'
+        );
+        const planButtonScripts = migrationScripts.filter(s => 
+          guidEq(s.companyGuid, companyGuid) && guidEq(s.planGuid, planGuid) && s.entityType === 'PLAN_PAGE_BUTTON'
+        );
+        const planPageGuids = new Set<string>();
+        planPageScripts.forEach(s => planPageGuids.add(s.entityGuid));
+        planButtonScripts.forEach(s => {
+          const pageGuid = this.findPlanPageGuidForButton(companyGuid, planGuid, s.entityGuid, s.script);
+          if (pageGuid) planPageGuids.add(pageGuid);
+        });
+
+        if (planPageGuids.size > 0) {
+          const pagesFolder: DialogFilterNode = {
+            id: `company_${companyGuid}_plan_${planGuid}_pages_folder`,
+            name: 'Pages',
+            type: 'plan_pages',
+            checked: true,
+            expanded: false,
+            companyGuid: companyGuid!,
+            planGuid: planGuid,
+            children: []
+          };
+
+          planPageGuids.forEach(pageGuid => {
+            const pageNode: DialogFilterNode = {
+              id: `company_${companyGuid}_plan_${planGuid}_page_${pageGuid}`,
+              name: this.getPageName(pageGuid),
+              type: 'page',
+              checked: true,
+              expanded: false,
+              companyGuid: companyGuid!,
+              planGuid: planGuid,
+              pageGuid: pageGuid,
+              children: []
+            };
+
+            const btnScripts = planButtonScripts.filter(s => {
+              const pgGuid = this.findPlanPageGuidForButton(companyGuid, planGuid, s.entityGuid, s.script);
+              return guidEq(pgGuid, pageGuid);
+            });
+
+            btnScripts.forEach(s => {
+              pageNode.children!.push({
+                id: `company_${companyGuid}_plan_${planGuid}_page_${pageGuid}_button_${s.entityGuid}`,
+                name: this.getButtonName(s.entityGuid),
+                type: 'button',
+                checked: true,
+                companyGuid: companyGuid!,
+                planGuid: planGuid,
+                pageGuid: pageGuid,
+                buttonGuid: s.entityGuid
+              });
+            });
+
+            pagesFolder.children!.push(pageNode);
+          });
+
+          planNode.children!.push(pagesFolder);
+        }
+
+        // Plan Transactions
+        const planTxnScripts = migrationScripts.filter(s => 
+          guidEq(s.companyGuid, companyGuid) && guidEq(s.planGuid, planGuid) && s.entityType === 'PLAN_TRANSACTION'
+        );
+        const planTxnButtonScripts = migrationScripts.filter(s => 
+          guidEq(s.companyGuid, companyGuid) && guidEq(s.planGuid, planGuid) && s.entityType === 'PLAN_TRANSACTION_BUTTON'
+        );
+        const planTxnGuids = new Set<string>();
+        planTxnScripts.forEach(s => planTxnGuids.add(s.entityGuid));
+        planTxnButtonScripts.forEach(s => {
+          const txnGuid = this.findPlanTxnGuidForButton(companyGuid, planGuid, s.entityGuid, s.script);
+          if (txnGuid) planTxnGuids.add(txnGuid);
+        });
+
+        if (planTxnGuids.size > 0) {
+          const txnsFolder: DialogFilterNode = {
+            id: `company_${companyGuid}_plan_${planGuid}_txns_folder`,
+            name: 'Transactions',
+            type: 'plan_transactions',
+            checked: true,
+            expanded: false,
+            companyGuid: companyGuid!,
+            planGuid: planGuid,
+            children: []
+          };
+
+          planTxnGuids.forEach(txnGuid => {
+            const txnNode: DialogFilterNode = {
+              id: `company_${companyGuid}_plan_${planGuid}_txn_${txnGuid}`,
+              name: this.getTransactionName(companyGuid, txnGuid),
+              type: 'transaction',
+              checked: true,
+              expanded: false,
+              companyGuid: companyGuid!,
+              planGuid: planGuid,
+              transactionGuid: txnGuid,
+              children: []
+            };
+
+            const btnScripts = planTxnButtonScripts.filter(s => {
+              const tGuid = this.findPlanTxnGuidForButton(companyGuid, planGuid, s.entityGuid, s.script);
+              return guidEq(tGuid, txnGuid);
+            });
+
+            btnScripts.forEach(s => {
+              txnNode.children!.push({
+                id: `company_${companyGuid}_plan_${planGuid}_txn_${txnGuid}_button_${s.entityGuid}`,
+                name: this.getButtonName(s.entityGuid),
+                type: 'button',
+                checked: true,
+                companyGuid: companyGuid!,
+                planGuid: planGuid,
+                transactionGuid: txnGuid,
+                buttonGuid: s.entityGuid
+              });
+            });
+
+            txnsFolder.children!.push(txnNode);
+          });
+
+          planNode.children!.push(txnsFolder);
+        }
+
+        // Plan Inquiries
+        const planInqScripts = migrationScripts.filter(s => 
+          guidEq(s.companyGuid, companyGuid) && guidEq(s.planGuid, planGuid) && s.entityType === 'PLAN_INQUIRY'
+        );
+        if (planInqScripts.length > 0) {
+          const inqsFolder: DialogFilterNode = {
+            id: `company_${companyGuid}_plan_${planGuid}_inqs_folder`,
+            name: 'Inquiries',
+            type: 'plan_inquiries',
+            checked: true,
+            expanded: false,
+            companyGuid: companyGuid!,
+            planGuid: planGuid,
+            children: []
+          };
+          planInqScripts.forEach(s => {
+            inqsFolder.children!.push({
+              id: `company_${companyGuid}_plan_${planGuid}_inquiry_${s.entityGuid}`,
+              name: this.getInquiryName(companyGuid, s.entityGuid),
+              type: 'inquiry',
+              checked: true,
+              companyGuid: companyGuid!,
+              planGuid: planGuid,
+              inquiryGuid: s.entityGuid
+            });
+          });
+          planNode.children!.push(inqsFolder);
+        }
+
+        return planNode;
+      };
+
+      // 2. Products
+      const productGuids = Array.from(new Set(
+        migrationScripts
+          .filter(s => guidEq(s.companyGuid, companyGuid) && s.productGuid)
+          .map(s => s.productGuid)
+      ));
+
+      productGuids.forEach(productGuid => {
+        const productNode: DialogFilterNode = {
+          id: `company_${companyGuid}_product_${productGuid}`,
+          name: this.getProductName(companyGuid, productGuid!),
+          type: 'product',
+          checked: true,
+          expanded: true,
+          companyGuid: companyGuid!,
+          productGuid: productGuid!,
+          children: []
+        };
+
+        // Product Pages
+        const prodPageScripts = migrationScripts.filter(s => 
+          guidEq(s.companyGuid, companyGuid) && guidEq(s.productGuid, productGuid) && !s.planGuid && s.entityType === 'PRODUCT_PAGE'
+        );
+        const prodButtonScripts = migrationScripts.filter(s => 
+          guidEq(s.companyGuid, companyGuid) && guidEq(s.productGuid, productGuid) && !s.planGuid && s.entityType === 'PRODUCT_BUTTON'
+        );
+        const prodPageGuids = new Set<string>();
+        prodPageScripts.forEach(s => prodPageGuids.add(s.entityGuid));
+        prodButtonScripts.forEach(s => {
+          const pageGuid = this.findProductPageGuidForButton(companyGuid, productGuid!, s.entityGuid, s.script);
+          if (pageGuid) prodPageGuids.add(pageGuid);
+        });
+
+        if (prodPageGuids.size > 0) {
+          const pagesFolder: DialogFilterNode = {
+            id: `company_${companyGuid}_product_${productGuid}_pages_folder`,
+            name: 'Pages',
+            type: 'product_pages',
+            checked: true,
+            expanded: false,
+            companyGuid: companyGuid!,
+            productGuid: productGuid!,
+            children: []
+          };
+
+          prodPageGuids.forEach(pageGuid => {
+            const pageNode: DialogFilterNode = {
+              id: `company_${companyGuid}_product_${productGuid}_page_${pageGuid}`,
+              name: this.getPageName(pageGuid),
+              type: 'page',
+              checked: true,
+              expanded: false,
+              companyGuid: companyGuid!,
+              productGuid: productGuid!,
+              pageGuid: pageGuid,
+              children: []
+            };
+
+            const btnScripts = prodButtonScripts.filter(s => {
+              const pgGuid = this.findProductPageGuidForButton(companyGuid, productGuid!, s.entityGuid, s.script);
+              return guidEq(pgGuid, pageGuid);
+            });
+
+            btnScripts.forEach(s => {
+              pageNode.children!.push({
+                id: `company_${companyGuid}_product_${productGuid}_page_${pageGuid}_button_${s.entityGuid}`,
+                name: this.getButtonName(s.entityGuid),
+                type: 'button',
+                checked: true,
+                companyGuid: companyGuid!,
+                productGuid: productGuid!,
+                pageGuid: pageGuid,
+                buttonGuid: s.entityGuid
+              });
+            });
+
+            pagesFolder.children!.push(pageNode);
+          });
+
+          productNode.children!.push(pagesFolder);
+        }
+
+        // Product Transactions
+        const prodTxnScripts = migrationScripts.filter(s => 
+          guidEq(s.companyGuid, companyGuid) && guidEq(s.productGuid, productGuid) && !s.planGuid && s.entityType === 'PRODUCT_TRANSACTION'
+        );
+        const prodTxnButtonScripts = migrationScripts.filter(s => 
+          guidEq(s.companyGuid, companyGuid) && guidEq(s.productGuid, productGuid) && !s.planGuid && s.entityType === 'PRODUCT_TRANSACTION_BUTTON'
+        );
+        const prodTxnGuids = new Set<string>();
+        prodTxnScripts.forEach(s => prodTxnGuids.add(s.entityGuid));
+        prodTxnButtonScripts.forEach(s => {
+          const txnGuid = this.findProductTxnGuidForButton(companyGuid, productGuid!, s.entityGuid, s.script);
+          if (txnGuid) prodTxnGuids.add(txnGuid);
+        });
+
+        if (prodTxnGuids.size > 0) {
+          const txnsFolder: DialogFilterNode = {
+            id: `company_${companyGuid}_product_${productGuid}_txns_folder`,
+            name: 'Transactions',
+            type: 'product_transactions',
+            checked: true,
+            expanded: false,
+            companyGuid: companyGuid!,
+            productGuid: productGuid!,
+            children: []
+          };
+
+          prodTxnGuids.forEach(txnGuid => {
+            const txnNode: DialogFilterNode = {
+              id: `company_${companyGuid}_product_${productGuid}_txn_${txnGuid}`,
+              name: this.getTransactionName(companyGuid, txnGuid),
+              type: 'transaction',
+              checked: true,
+              expanded: false,
+              companyGuid: companyGuid!,
+              productGuid: productGuid!,
+              transactionGuid: txnGuid,
+              children: []
+            };
+
+            const btnScripts = prodTxnButtonScripts.filter(s => {
+              const tGuid = this.findProductTxnGuidForButton(companyGuid, productGuid!, s.entityGuid, s.script);
+              return guidEq(tGuid, txnGuid);
+            });
+
+            btnScripts.forEach(s => {
+              txnNode.children!.push({
+                id: `company_${companyGuid}_product_${productGuid}_txn_${txnGuid}_button_${s.entityGuid}`,
+                name: this.getButtonName(s.entityGuid),
+                type: 'button',
+                checked: true,
+                companyGuid: companyGuid!,
+                productGuid: productGuid!,
+                transactionGuid: txnGuid,
+                buttonGuid: s.entityGuid
+              });
+            });
+
+            txnsFolder.children!.push(txnNode);
+          });
+
+          productNode.children!.push(txnsFolder);
+        }
+
+        // 3. Plans belonging to this product
+        const planGuids = Array.from(new Set(
+          migrationScripts
+            .filter(s => guidEq(s.companyGuid, companyGuid) && guidEq(s.productGuid, productGuid) && s.planGuid)
+            .map(s => s.planGuid)
+        ));
+
+        planGuids.forEach(planGuid => {
+          productNode.children!.push(buildPlanNode(planGuid!, productGuid!));
+        });
+
+        companyNode.children!.push(productNode);
+      });
+
+      // 4. Independent Plans
+      const independentPlanGuids = Array.from(new Set(
+        migrationScripts
+          .filter(s => guidEq(s.companyGuid, companyGuid) && !s.productGuid && s.planGuid)
+          .map(s => s.planGuid)
+      ));
+
+      independentPlanGuids.forEach(planGuid => {
+        companyNode.children!.push(buildPlanNode(planGuid!));
+      });
+
+      tree.push(companyNode);
+    });
+
+    this.dialogFilterNodes = tree;
+  }
+
+  onDialogNodeCheckChange(node: DialogFilterNode, checked: boolean): void {
+    node.checked = checked;
+    
+    const setChildrenChecked = (n: DialogFilterNode, val: boolean) => {
+      n.checked = val;
+      if (n.children) {
+        n.children.forEach(c => setChildrenChecked(c, val));
+      }
+    };
+    if (node.children) {
+      node.children.forEach(c => setChildrenChecked(c, checked));
+    }
+
+    this.updateDialogFilterTreeParentCheckedState();
+  }
+
+  isDialogNodeIndeterminate(node: DialogFilterNode): boolean {
+    if (!node.children || node.children.length === 0) return false;
+    return !node.checked && this.hasAnyCheckedDescendant(node);
+  }
+
+  private hasAnyCheckedDescendant(node: DialogFilterNode): boolean {
+    if (!node.children) return false;
+    return node.children.some(c => c.checked || this.hasAnyCheckedDescendant(c));
+  }
+
+  private updateDialogFilterTreeParentCheckedState(): void {
+    const updateChecked = (node: DialogFilterNode): boolean => {
+      if (node.children && node.children.length > 0) {
+        node.children.forEach(updateChecked);
+        node.checked = node.children.every(c => c.checked);
+      }
+      return node.checked;
+    };
+    this.dialogFilterNodes.forEach(updateChecked);
+  }
+
+  getDialogFilteredScripts(): string[] {
+    if (!this.allDialogScripts) return [];
+
+    const checkedIds = new Set<string>();
+
+    const traverse = (node: DialogFilterNode) => {
+      if (node.checked) {
+        checkedIds.add(node.id);
+      }
+      if (node.children) {
+        node.children.forEach(traverse);
+      }
+    };
+
+    this.dialogFilterNodes.forEach(traverse);
+
+    const checkedCompanyNodes = this.dialogFilterNodes.filter(n => n.checked || n.children?.some(c => c.checked));
+
+    const filtered = this.allDialogScripts.filter(s => {
+      if (s.entityType === 'SECURITY_GROUP') {
+        return checkedCompanyNodes.length > 0;
+      }
+      const nodeId = this.getScriptNodeId(s);
+      if (!nodeId) {
+        return true;
+      }
+      return checkedIds.has(nodeId);
+    });
+
+    const textFilter = (this.sqlFilterText || '').trim().toLowerCase();
+    if (!textFilter) {
+      return filtered.map(s => s.script);
+    }
+    return filtered
+      .filter(s => s.script.toLowerCase().includes(textFilter))
+      .map(s => s.script);
+  }
+
+  getFilteredScripts(scripts: string[]): string[] {
+    return this.getDialogFilteredScripts();
+  }
+
+  getFormattedFilteredScripts(scripts: string[]): string {
+    const filtered = this.getDialogFilteredScripts();
+    return filtered.map((s: string) => this.formatSql(s)).join('\n\n');
   }
 
   backToCompanySelection(): void {
@@ -2702,6 +3708,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     return result.length > 0 ? result : this.allButtons;
   }
 
+  getFilteredAvailableButtons(query: string): ButtonDto[] {
+    const buttons = this.getAvailableButtons();
+    if (!query) return buttons;
+    const q = query.toLowerCase().trim();
+    return buttons.filter(b => (b.name || '').toLowerCase().includes(q));
+  }
+
   // ── Company Pages: Bulk Button Toggle ──
   bulkToggleCompanyPageButtons(buttonGuid: string, selected: boolean): void {
     if (!this.activeConfig || !buttonGuid) return;
@@ -2779,5 +3792,287 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     this.activeConfig.plans.forEach(plan =>
       this.bulkTogglePlanButtons(plan, buttonGuid, target, selected)
     );
+  }
+
+  isAllCompanyPagesSelected(config: CompanyConfig): boolean {
+    return config.companyPages.length > 0 && config.companyPages.every(p => p.selected);
+  }
+  isSomeCompanyPagesSelected(config: CompanyConfig): boolean {
+    const anySelected = config.companyPages.some(p => p.selected || p.buttons.some(b => b.selected));
+    return anySelected && !this.isAllCompanyPagesSelected(config);
+  }
+  toggleAllCompanyPages(config: CompanyConfig, checked: boolean): void {
+    config.companyPages.forEach(p => {
+      p.selected = checked;
+      p.buttons.forEach(b => b.selected = checked);
+    });
+  }
+
+  isAllInquiriesSelected(config: CompanyConfig): boolean {
+    return config.companyInquiries.length > 0 && config.companyInquiries.every(i => i.selected);
+  }
+  isSomeInquiriesSelected(config: CompanyConfig): boolean {
+    const anySelected = config.companyInquiries.some(i => i.selected);
+    return anySelected && !this.isAllInquiriesSelected(config);
+  }
+  toggleAllInquiries(config: CompanyConfig, checked: boolean): void {
+    config.companyInquiries.forEach(i => i.selected = checked);
+  }
+
+  isAllWebServicesSelected(config: CompanyConfig): boolean {
+    return config.companyWebServices.length > 0 && config.companyWebServices.every(w => w.selected);
+  }
+  isSomeWebServicesSelected(config: CompanyConfig): boolean {
+    const anySelected = config.companyWebServices.some(w => w.selected);
+    return anySelected && !this.isAllWebServicesSelected(config);
+  }
+  toggleAllWebServices(config: CompanyConfig, checked: boolean): void {
+    config.companyWebServices.forEach(w => w.selected = checked);
+  }
+
+  isAllProductPagesSelected(product: ProductConfig): boolean {
+    return product.productPages.length > 0 && product.productPages.every(p => p.selected);
+  }
+  isSomeProductPagesSelected(product: ProductConfig): boolean {
+    const anySelected = product.productPages.some(p => p.selected || p.buttons.some(b => b.selected));
+    return anySelected && !this.isAllProductPagesSelected(product);
+  }
+  toggleAllProductPages(product: ProductConfig, checked: boolean): void {
+    product.productPages.forEach(p => {
+      p.selected = checked;
+      p.buttons.forEach(b => b.selected = checked);
+    });
+  }
+
+  isAllProductTxnsSelected(product: ProductConfig): boolean {
+    return product.productTransactions.length > 0 && product.productTransactions.every(t => t.selected);
+  }
+  isSomeProductTxnsSelected(product: ProductConfig): boolean {
+    const anySelected = product.productTransactions.some(t => t.selected || t.buttons.some(b => b.selected));
+    return anySelected && !this.isAllProductTxnsSelected(product);
+  }
+  toggleAllProductTxns(product: ProductConfig, checked: boolean): void {
+    product.productTransactions.forEach(t => {
+      t.selected = checked;
+      t.buttons.forEach(b => b.selected = checked);
+    });
+  }
+
+  isAllPlanPagesSelected(plan: PlanConfig): boolean {
+    return plan.planPages.length > 0 && plan.planPages.every(p => p.selected);
+  }
+  isSomePlanPagesSelected(plan: PlanConfig): boolean {
+    const anySelected = plan.planPages.some(p => p.selected || p.buttons.some(b => b.selected));
+    return anySelected && !this.isAllPlanPagesSelected(plan);
+  }
+  toggleAllPlanPages(plan: PlanConfig, checked: boolean): void {
+    plan.planPages.forEach(p => {
+      p.selected = checked;
+      p.buttons.forEach(b => b.selected = checked);
+    });
+  }
+
+  isAllPlanTxnsSelected(plan: PlanConfig): boolean {
+    const allTxns = [...plan.planTransactions, ...(plan.productPlanTransactions || [])];
+    return allTxns.length > 0 && allTxns.every(t => t.selected);
+  }
+  isSomePlanTxnsSelected(plan: PlanConfig): boolean {
+    const allTxns = [...plan.planTransactions, ...(plan.productPlanTransactions || [])];
+    const anySelected = allTxns.some(t => t.selected || t.buttons.some(b => b.selected));
+    return anySelected && !this.isAllPlanTxnsSelected(plan);
+  }
+  toggleAllPlanTxns(plan: PlanConfig, checked: boolean): void {
+    plan.planTransactions.forEach(t => {
+      t.selected = checked;
+      t.buttons.forEach(b => b.selected = checked);
+    });
+    plan.productPlanTransactions?.forEach(t => {
+      t.selected = checked;
+      t.buttons.forEach(b => b.selected = checked);
+    });
+  }
+
+  isAllPlanInquiriesSelected(plan: PlanConfig): boolean {
+    return plan.planInquiries.length > 0 && plan.planInquiries.every(i => i.selected);
+  }
+  isSomePlanInquiriesSelected(plan: PlanConfig): boolean {
+    const anySelected = plan.planInquiries.some(i => i.selected);
+    return anySelected && !this.isAllPlanInquiriesSelected(plan);
+  }
+  toggleAllPlanInquiries(plan: PlanConfig, checked: boolean): void {
+    plan.planInquiries.forEach(i => i.selected = checked);
+  }
+
+  deselectAllForMigration(): void {
+    this.companyConfigs.forEach(c => {
+      c.selected = false;
+      c.companyPages.forEach(p => {
+        p.selected = false;
+        p.buttons.forEach(b => b.selected = false);
+      });
+      c.companyInquiries.forEach(i => i.selected = false);
+      c.companyWebServices.forEach(w => w.selected = false);
+      c.products.forEach(p => {
+        p.selected = false;
+        p.productPages.forEach(pg => {
+          pg.selected = false;
+          pg.buttons.forEach(b => b.selected = false);
+        });
+        p.productTransactions.forEach(t => {
+          t.selected = false;
+          t.buttons.forEach(b => b.selected = false);
+        });
+      });
+      c.plans.forEach(p => {
+        p.selected = false;
+        p.planPages.forEach(pg => {
+          pg.selected = false;
+          pg.buttons.forEach(b => b.selected = false);
+        });
+        p.planTransactions.forEach(t => {
+          t.selected = false;
+          t.buttons.forEach(b => b.selected = false);
+        });
+        p.productPlanTransactions?.forEach(t => {
+          t.selected = false;
+          t.buttons.forEach(b => b.selected = false);
+        });
+        p.planInquiries.forEach(i => i.selected = false);
+      });
+    });
+  }
+
+  selectAllForMigration(): void {
+    this.companyConfigs.forEach(c => {
+      c.selected = true;
+      c.companyPages.forEach(p => {
+        p.selected = true;
+        p.buttons.forEach(b => b.selected = true);
+      });
+      c.companyInquiries.forEach(i => i.selected = true);
+      c.companyWebServices.forEach(w => w.selected = true);
+      c.products.forEach(p => {
+        p.selected = true;
+        p.productPages.forEach(pg => {
+          pg.selected = true;
+          pg.buttons.forEach(b => b.selected = true);
+        });
+        p.productTransactions.forEach(t => {
+          t.selected = true;
+          t.buttons.forEach(b => b.selected = true);
+        });
+      });
+      c.plans.forEach(p => {
+        p.selected = true;
+        p.planPages.forEach(pg => {
+          pg.selected = true;
+          pg.buttons.forEach(b => b.selected = true);
+        });
+        p.planTransactions.forEach(t => {
+          t.selected = true;
+          t.buttons.forEach(b => b.selected = true);
+        });
+        p.productPlanTransactions?.forEach(t => {
+          t.selected = true;
+          t.buttons.forEach(b => b.selected = true);
+        });
+        p.planInquiries.forEach(i => i.selected = true);
+      });
+    });
+  }
+
+  buildMigrationPayload(): SecurityGroupRequestDto {
+    const companies: CompanyDto[] = this.viewCompanies.map(config => {
+      const companyPages = config.companyPages
+        .filter(p => p.configured)
+        .map(p => ({
+          pageGuid: p.pageGuid,
+          selected: true,
+          buttons: p.buttons.filter(b => b.configured).map(b => ({ buttonGuid: b.buttonGuid, selected: true }))
+        }));
+
+      const companyInquiries = config.companyInquiries
+        .filter(i => i.configured)
+        .map(i => ({
+          inquiryScreenNameGuid: i.inquiryScreenNameGuid,
+          selected: true
+        }));
+
+      const companyWebServices = config.companyWebServices
+        .filter(w => w.configured)
+        .map(w => ({
+          webServiceGuid: w.webServiceGuid,
+          selected: true
+        }));
+
+      const products = config.products
+        .filter(prod => prod.configured)
+        .map(prod => ({
+          productGuid: prod.productGuid,
+          selected: true,
+          productPages: prod.productPages
+            .filter(p => p.configured)
+            .map(p => ({
+              pageGuid: p.pageGuid,
+              selected: true,
+              buttons: p.buttons.filter(b => b.configured).map(b => ({ buttonGuid: b.buttonGuid, selected: true }))
+            })),
+          productTransactions: prod.productTransactions
+            .filter(t => t.configured)
+            .map(t => ({
+              transactionGuid: t.transactionGuid,
+              selected: true,
+              buttons: t.buttons.filter(b => b.configured).map(b => ({ buttonGuid: b.buttonGuid, selected: true }))
+            }))
+        }));
+
+      const plans = config.plans
+        .filter(plan => plan.configured)
+        .map(plan => ({
+          planGuid: plan.planGuid,
+          selected: true,
+          planPages: plan.planPages
+            .filter(p => p.configured)
+            .map(p => ({
+              pageGuid: p.pageGuid,
+              selected: true,
+              buttons: p.buttons.filter(b => b.configured).map(b => ({ buttonGuid: b.buttonGuid, selected: true }))
+            })),
+          planTransactions: [
+            ...plan.planTransactions,
+            ...(plan.productPlanTransactions || [])
+          ]
+            .filter(t => t.configured)
+            .map(t => ({
+              transactionGuid: t.transactionGuid,
+              selected: true,
+              buttons: t.buttons.filter(b => b.configured).map(b => ({ buttonGuid: b.buttonGuid, selected: true }))
+            })),
+          planInquiries: plan.planInquiries
+            .filter(i => i.configured)
+            .map(i => ({
+              inquiryScreenNameGuid: i.inquiryScreenNameGuid,
+              selected: true
+            }))
+        }));
+
+      return {
+        companyGuid: config.company.companyGuid,
+        selected: true,
+        companyPages,
+        companyInquiries,
+        companyWebServices,
+        products,
+        plans
+      };
+    });
+
+    return {
+      securityGroup: {
+        securityGroupGuid: this.groupGuid || undefined,
+        groupName: this.groupName,
+        companies
+      }
+    };
   }
 }

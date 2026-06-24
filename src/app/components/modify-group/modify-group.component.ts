@@ -128,4 +128,10 @@ export class ModifyGroupComponent implements OnInit {
       this.router.navigate(['/security-group/configure']);
     }
   }
+
+  get isItAdminSelected(): boolean {
+    if (!this.selectedGuid) return false;
+    const group = this.groups.find(g => g.securityGroupGuid === this.selectedGuid);
+    return group?.groupName?.trim().toUpperCase() === 'IT ADMIN';
+  }
 }
