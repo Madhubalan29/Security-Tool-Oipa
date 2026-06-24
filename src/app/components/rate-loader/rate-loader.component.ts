@@ -11,6 +11,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { CommonModule } from '@angular/common';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { environment } from '../../../environments/environment';
 
 interface TargetColumn {
   name: string;
@@ -30,6 +31,7 @@ interface SheetMapping {
   styleUrls: ['./rate-loader.component.scss']
 })
 export class RateLoaderComponent implements OnInit {
+  private baseUrl = environment.coreApiUrl;
   isSubmitted = false;
   fileName = '';
   fileObj: File | null = null;
@@ -79,11 +81,11 @@ export class RateLoaderComponent implements OnInit {
   }
 
   fetchDescriptions() {
-    this.http.get<string[]>('https://localhost:8015/api/rates/descriptions').subscribe(
+    this.http.get<string[]>(`${this.baseUrl}/rates/descriptions`).subscribe(
       res => this.availableRateGroupDescriptions = res || [],
       err => console.error('Failed to load group descriptions', err)
     );
-    this.http.get<string[]>('https://localhost:8015/api/rates/asrate-descriptions').subscribe(
+    this.http.get<string[]>(`${this.baseUrl}/rates/asrate-descriptions`).subscribe(
       res => this.availableAsRateDescriptions = res || [],
       err => console.error('Failed to load asrate descriptions', err)
     );
@@ -155,8 +157,7 @@ export class RateLoaderComponent implements OnInit {
           activeToDate: result.activeToDate ? new Date(result.activeToDate).getTime() : null,
           expirationDate: result.expirationDate ? new Date(result.expirationDate).getTime() : null
         };
-
-        this.http.post('https://localhost:8015/api/rates/descriptions', payload).subscribe(
+        this.http.post(`${this.baseUrl}/rates/descriptions`, payload).subscribe(
           () => {
             alert('Saved successfully!');
             this.fetchDescriptions();
@@ -178,7 +179,7 @@ export class RateLoaderComponent implements OnInit {
       mapping.criteriaLabels = {};
       return;
     }
-    this.http.get<any>(`https://localhost:8015/api/rates/description-details?rateDesc=${encodeURIComponent(desc)}`).subscribe(
+    this.http.get<any>(`${this.baseUrl}/rates/description-details?rateDesc=${encodeURIComponent(desc)}`).subscribe(
       res => {
         mapping.criteriaLabels = {
           'CRITERIA1': res.criteria1,
@@ -224,7 +225,7 @@ export class RateLoaderComponent implements OnInit {
     this.isUploadingFile = true;
     const formData = new FormData();
     formData.append('file', file);
-    this.http.post<{uploadSessionId: string}>('https://localhost:8015/api/rates/upload-file', formData).subscribe(
+    this.http.post<{uploadSessionId: string}>(`${this.baseUrl}/rates/upload-file`, formData).subscribe(
       res => {
         this.uploadSessionId = res.uploadSessionId;
         this.isUploadingFile = false;
@@ -278,7 +279,7 @@ export class RateLoaderComponent implements OnInit {
     formData.append('uploadSessionId', this.uploadSessionId);
     
     this.isGenerating = true;
-    this.http.post('https://localhost:8015/api/rates/generate-script', formData, { responseType: 'text' }).subscribe(
+    this.http.post(`${this.baseUrl}/rates/generate-script`, formData, { responseType: 'text' }).subscribe(
       res => {
         this.generatedScripts = res;
         this.isGenerating = false;
@@ -315,7 +316,7 @@ export class RateLoaderComponent implements OnInit {
     formData.append('mappings', JSON.stringify(this.mappings));
     formData.append('uploadSessionId', this.uploadSessionId);
 
-    this.http.post('https://localhost:8015/api/rates/upload', formData, { responseType: 'text' }).subscribe(
+    this.http.post(`${this.baseUrl}/rates/upload`, formData, { responseType: 'text' }).subscribe(
       res => {
         this.executeStatus = res;
         this.isExecuting = false;
@@ -428,7 +429,7 @@ export class RateLoaderComponent implements OnInit {
   exportScriptForSelected() {
     if (!this.selectedDescriptionsForExport.length) return;
     this.isGenerating = true;
-    this.http.post('https://localhost:8015/api/rates/export-script', this.selectedDescriptionsForExport, { responseType: 'text' }).subscribe(
+    this.http.post(`${this.baseUrl}/rates/export-script`, this.selectedDescriptionsForExport, { responseType: 'text' }).subscribe(
       res => {
         this.generatedScripts = res;
         this.isGenerating = false;
@@ -446,7 +447,7 @@ export class RateLoaderComponent implements OnInit {
     if (!this.selectedDescriptionsForDelete.length) return;
     if (!confirm('Are you sure you want to delete the selected rate descriptions?')) return;
     this.isExecuting = true;
-    this.http.post('https://localhost:8015/api/rates/delete-rates', this.selectedDescriptionsForDelete, { responseType: 'text' }).subscribe(
+    this.http.post(`${this.baseUrl}/rates/delete-rates`, this.selectedDescriptionsForDelete, { responseType: 'text' }).subscribe(
       res => {
         this.isExecuting = false;
         this.snackBar.open(res, 'Close', { duration: 3000 });
