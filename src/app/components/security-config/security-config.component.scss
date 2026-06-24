@@ -1315,6 +1315,188 @@
       color: #3b82f6;
     }
   }
+
+  .dialog-tree-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+
+    .control-btn.sm {
+      height: 28px !important;
+      line-height: 28px !important;
+      font-size: 0.75rem !important;
+      padding: 0 10px !important;
+      border-radius: 6px !important;
+      color: var(--text-secondary);
+      border-color: var(--border-light);
+      background: transparent;
+
+      mat-icon {
+        font-size: 14px !important;
+        width: 14px !important;
+        height: 14px !important;
+        margin-right: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-primary);
+        border-color: var(--primary);
+      }
+    }
+  }
+
+  .dialog-tree-node {
+    display: flex;
+    flex-direction: column;
+    margin-top: 4px;
+    
+    .dialog-node-row {
+      display: flex;
+      align-items: center;
+      padding: 2px 0;
+
+      .toggle-arrow-btn {
+        width: 24px !important;
+        height: 24px !important;
+        line-height: 24px !important;
+        padding: 0 !important;
+        min-width: 0 !important;
+        margin-right: 4px;
+        flex-shrink: 0;
+
+        .toggle-arrow-icon {
+          font-size: 18px !important;
+          width: 18px !important;
+          height: 18px !important;
+          display: inline-flex !important;
+          align-items: center;
+          justify-content: center;
+          color: var(--text-muted);
+        }
+      }
+
+      .toggle-arrow-spacer {
+        width: 28px; // 24px width + 4px margin
+        flex-shrink: 0;
+      }
+
+      ::ng-deep .mat-checkbox-layout {
+        margin-bottom: 0 !important;
+      }
+    }
+    
+    .dialog-node-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.825rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      
+      &.company-type {
+        font-weight: 600;
+      }
+      &.level-type {
+        color: var(--text-secondary);
+      }
+      &.product-type {
+        color: var(--text-primary);
+      }
+      &.plan-type {
+        color: var(--text-secondary);
+      }
+      &.page-type {
+        color: var(--text-primary);
+      }
+      &.transaction-type {
+        color: var(--text-primary);
+      }
+      &.button-type {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+      }
+      &.company_level_pages-type,
+      &.product_pages-type,
+      &.plan_pages-type,
+      &.product_transactions-type,
+      &.plan_transactions-type,
+      &.company_inquiries-type,
+      &.company_webservices-type,
+      &.plan_inquiries-type {
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+    }
+    
+    .dialog-node-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      
+      &.company { color: var(--primary); }
+      &.level { color: #f59e0b; }
+      &.product { color: #10b981; }
+      &.plan { color: #3b82f6; }
+      &.page { color: #fbbf24; }
+      &.transaction { color: #14b8a6; }
+      &.button { color: #f43f5e; }
+      &.default-icon { color: var(--text-muted); }
+    }
+
+    .dialog-node-children {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      border-left: 1px dashed rgba(255, 255, 255, 0.1);
+      padding-left: 10px;
+    }
+
+    .dialog-node-actions {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 12px;
+      gap: 6px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      font-size: 11px;
+      vertical-align: middle;
+
+      .node-action-link {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--primary, #6366f1);
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 11px;
+        text-decoration: underline;
+
+        &:hover {
+          color: var(--primary-light, #818cf8);
+        }
+      }
+
+      .node-action-divider {
+        color: rgba(255, 255, 255, 0.2);
+        font-size: 10px;
+      }
+    }
+
+    .dialog-node-row:hover .dialog-node-actions {
+      opacity: 0.7;
+    }
+    
+    .dialog-node-actions:hover {
+      opacity: 1 !important;
+    }
+  }
 }
 
 // ── View Mode Breadcrumb & Header Meta ──

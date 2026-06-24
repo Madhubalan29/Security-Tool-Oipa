@@ -1,6 +1,7 @@
 export interface ButtonDto {
   buttonGuid: string;
   selected?: boolean; // For UI state
+  configured?: boolean;
   name?: string;      // Optional for display
 }
 
@@ -8,6 +9,7 @@ export interface CompanyPageDto {
   pageGuid: string;
   buttons: ButtonDto[];
   selected?: boolean; // For UI state
+  configured?: boolean;
   name?: string;
   buttonFilter?: string;
 }
@@ -15,12 +17,14 @@ export interface CompanyPageDto {
 export interface CompanyInquiryDto {
   inquiryScreenNameGuid: string;
   selected?: boolean;
+  configured?: boolean;
   name?: string;
 }
 
 export interface CompanyWebServiceDto {
   webServiceGuid: string;
   selected?: boolean;
+  configured?: boolean;
   name?: string;
 }
 
@@ -28,6 +32,7 @@ export interface PlanTransactionDto {
   transactionGuid: string;
   buttons: ButtonDto[];
   selected?: boolean;
+  configured?: boolean;
   name?: string;
   buttonFilter?: string;
 }
@@ -36,6 +41,7 @@ export interface PlanPageDto {
   pageGuid: string;
   buttons: ButtonDto[];
   selected?: boolean;
+  configured?: boolean;
   name?: string;
 }
 
@@ -45,6 +51,7 @@ export interface PlanDto {
   planTransactions: PlanTransactionDto[];
   planInquiries: CompanyInquiryDto[]; // From Phase 1 requirement
   selected?: boolean;
+  configured?: boolean;
   name?: string;
 }
 
@@ -52,6 +59,7 @@ export interface ProductTransactionDto {
   transactionGuid: string;
   buttons: ButtonDto[];
   selected?: boolean;
+  configured?: boolean;
   name?: string;
   buttonFilter?: string;
 }
@@ -60,6 +68,7 @@ export interface ProductPageDto {
   pageGuid: string;
   buttons: ButtonDto[];
   selected?: boolean;
+  configured?: boolean;
   name?: string;
 }
 
@@ -68,6 +77,7 @@ export interface ProductDto {
   productPages: ProductPageDto[];
   productTransactions: ProductTransactionDto[];
   selected?: boolean;
+  configured?: boolean;
   name?: string;
 }
 
@@ -79,6 +89,7 @@ export interface CompanyDto {
   products: ProductDto[];
   plans: PlanDto[];
   selected?: boolean;
+  configured?: boolean;
   name?: string;
 }
 
@@ -92,10 +103,20 @@ export interface SecurityGroupRequestDto {
   securityGroup: SecurityGroupDto;
 }
 
+export interface MigrationScriptDto {
+  companyGuid: string;
+  productGuid: string;
+  planGuid: string;
+  entityType: string;
+  entityGuid: string;
+  script: string;
+}
+
 export interface GenerateScriptsResponseDto {
   securityGroupGuid: string;
   groupName: string;
   scripts: string[];
+  migrationScripts?: MigrationScriptDto[];
 }
 
 export interface CreateGroupResponseDto {
