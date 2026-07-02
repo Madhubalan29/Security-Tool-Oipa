@@ -183,6 +183,127 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   authTxnToTxnMap = new Map<string, string>();
   authPageToPageMap = new Map<string, string>();
 
+  // Union maps and sets derived from IT Admin (baseConfig)
+  unionCompanyPages = new Map<string, Set<string>>(); // pageGuid -> Set of buttonGuids
+  unionProductPages = new Map<string, Set<string>>(); // pageGuid -> Set of buttonGuids
+  unionPlanPages = new Map<string, Set<string>>(); // pageGuid -> Set of buttonGuids
+  unionProductTxnButtons = new Map<string, Set<string>>(); // transactionGuid -> Set of buttonGuids
+  unionPlanTxnButtons = new Map<string, Set<string>>(); // transactionGuid -> Set of buttonGuids
+  unionAllPageButtons = new Set<string>(); // Set of all buttonGuids across all pages
+  unionAllTxnButtons = new Set<string>();  // Set of all buttonGuids across all transactions
+
+  computeBaseConfigUnions(): void {
+    this.unionCompanyPages.clear();
+    this.unionProductPages.clear();
+    this.unionPlanPages.clear();
+    this.unionProductTxnButtons.clear();
+    this.unionPlanTxnButtons.clear();
+    this.unionAllPageButtons.clear();
+    this.unionAllTxnButtons.clear();
+
+    if (!this.baseConfig || !this.baseConfig.securityGroup || !this.baseConfig.securityGroup.companies) {
+      return;
+    }
+
+    this.baseConfig.securityGroup.companies.forEach(company => {
+      // 1. Company Pages & Buttons
+      if (company.companyPages) {
+        company.companyPages.forEach(cp => {
+          const pageGuid = cp.pageGuid.toUpperCase();
+          if (!this.unionCompanyPages.has(pageGuid)) {
+            this.unionCompanyPages.set(pageGuid, new Set<string>());
+          }
+          const buttonSet = this.unionCompanyPages.get(pageGuid)!;
+          if (cp.buttons) {
+            cp.buttons.forEach(b => {
+              const bGuid = b.buttonGuid.toUpperCase();
+              buttonSet.add(bGuid);
+              this.unionAllPageButtons.add(bGuid);
+            });
+          }
+        });
+      }
+
+      // 2. Product Pages & Transaction Buttons
+      if (company.products) {
+        company.products.forEach(prod => {
+          if (prod.productPages) {
+            prod.productPages.forEach(pp => {
+              const pageGuid = pp.pageGuid.toUpperCase();
+              if (!this.unionProductPages.has(pageGuid)) {
+                this.unionProductPages.set(pageGuid, new Set<string>());
+              }
+              const buttonSet = this.unionProductPages.get(pageGuid)!;
+              if (pp.buttons) {
+                pp.buttons.forEach(b => {
+                  const bGuid = b.buttonGuid.toUpperCase();
+                  buttonSet.add(bGuid);
+                  this.unionAllPageButtons.add(bGuid);
+                });
+              }
+            });
+          }
+
+          if (prod.productTransactions) {
+            prod.productTransactions.forEach(pt => {
+              const txnGuid = pt.transactionGuid.toUpperCase();
+              if (!this.unionProductTxnButtons.has(txnGuid)) {
+                this.unionProductTxnButtons.set(txnGuid, new Set<string>());
+              }
+              const buttonSet = this.unionProductTxnButtons.get(txnGuid)!;
+              if (pt.buttons) {
+                pt.buttons.forEach(b => {
+                  const bGuid = b.buttonGuid.toUpperCase();
+                  buttonSet.add(bGuid);
+                  this.unionAllTxnButtons.add(bGuid);
+                });
+              }
+            });
+          }
+        });
+      }
+
+      // 3. Plan Pages & Transaction Buttons
+      if (company.plans) {
+        company.plans.forEach(plan => {
+          if (plan.planPages) {
+            plan.planPages.forEach(pp => {
+              const pageGuid = pp.pageGuid.toUpperCase();
+              if (!this.unionPlanPages.has(pageGuid)) {
+                this.unionPlanPages.set(pageGuid, new Set<string>());
+              }
+              const buttonSet = this.unionPlanPages.get(pageGuid)!;
+              if (pp.buttons) {
+                pp.buttons.forEach(b => {
+                  const bGuid = b.buttonGuid.toUpperCase();
+                  buttonSet.add(bGuid);
+                  this.unionAllPageButtons.add(bGuid);
+                });
+              }
+            });
+          }
+
+          if (plan.planTransactions) {
+            plan.planTransactions.forEach(pt => {
+              const txnGuid = pt.transactionGuid.toUpperCase();
+              if (!this.unionPlanTxnButtons.has(txnGuid)) {
+                this.unionPlanTxnButtons.set(txnGuid, new Set<string>());
+              }
+              const buttonSet = this.unionPlanTxnButtons.get(txnGuid)!;
+              if (pt.buttons) {
+                pt.buttons.forEach(b => {
+                  const bGuid = b.buttonGuid.toUpperCase();
+                  buttonSet.add(bGuid);
+                  this.unionAllTxnButtons.add(bGuid);
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+
   constructor(
     private router: Router,
     private lookupService: LookupService,
@@ -221,6 +342,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         this.allButtons = data.buttons;
         this.allWebServices = data.webServices;
         this.baseConfig = data.baseConfig;
+        this.computeBaseConfigUnions();
 
         // Try to restore persisted state first
         const persisted = this.stateService.loadConfigState();
@@ -229,11 +351,6 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         } else {
           // Initialize company configs from scratch
           let companiesToUse = this.allCompanies;
-          if (this.baseConfig && this.baseConfig.securityGroup && this.baseConfig.securityGroup.companies) {
-            companiesToUse = this.allCompanies.filter(c =>
-              this.baseConfig!.securityGroup.companies.some(bc => guidEq(bc.companyGuid, c.companyGuid))
-            );
-          }
           this.companyConfigs = companiesToUse.map(c => ({
             company: c,
             selected: false,
@@ -281,11 +398,6 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     // Rebuild companyConfigs by merging master data with persisted selections
     let companiesToUse = this.allCompanies;
-    if (this.baseConfig && this.baseConfig.securityGroup && this.baseConfig.securityGroup.companies) {
-      companiesToUse = this.allCompanies.filter(c =>
-        this.baseConfig!.securityGroup.companies.some(bc => guidEq(bc.companyGuid, c.companyGuid))
-      );
-    }
 
     this.companyConfigs = companiesToUse.map(company => {
       const saved = persisted.companyConfigs.find(
@@ -452,21 +564,19 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   private initCompanyConfig(config: CompanyConfig, onComplete?: () => void): void {
     const companyGuid = config.company.companyGuid;
-
-    // Get the base company config
-    const baseCompany = this.baseConfig?.securityGroup?.companies?.find(c => guidEq(c.companyGuid, companyGuid));
+    const hasBase = !!this.baseConfig;
 
     // Init pages with buttons
     let pagesToMap = this.allPages;
-    if (baseCompany && baseCompany.companyPages) {
-      pagesToMap = this.allPages.filter(p => baseCompany.companyPages.some(bp => guidEq(bp.pageGuid, p.pageGuid)));
+    if (hasBase) {
+      pagesToMap = this.allPages.filter(p => this.unionCompanyPages.has(p.pageGuid.toUpperCase()));
     }
 
     config.companyPages = pagesToMap.map(p => {
-      const basePage = baseCompany?.companyPages?.find(bp => guidEq(bp.pageGuid, p.pageGuid));
+      const pageGuidUpper = p.pageGuid.toUpperCase();
       let buttonsToMap = this.allButtons;
-      if (basePage && basePage.buttons) {
-        buttonsToMap = this.allButtons.filter(b => basePage.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+      if (hasBase) {
+        buttonsToMap = this.allButtons.filter(b => this.unionAllPageButtons.has(b.buttonGuid.toUpperCase()));
       }
       return {
         pageGuid: p.pageGuid,
@@ -482,9 +592,6 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     // Init web services
     let wsToMap = this.allWebServices;
-    if (baseCompany && baseCompany.companyWebServices) {
-      wsToMap = this.allWebServices.filter(ws => baseCompany.companyWebServices.some(bws => guidEq(bws.webServiceGuid, ws.webServiceGuid)));
-    }
 
     config.companyWebServices = wsToMap.map(ws => ({
       webServiceGuid: ws.webServiceGuid,
@@ -500,9 +607,6 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (res) => {
         let screensToMap = res.screens;
-        if (baseCompany && baseCompany.companyInquiries) {
-          screensToMap = res.screens.filter(s => baseCompany.companyInquiries.some(bi => guidEq(bi.inquiryScreenNameGuid, s.inquiryScreenGuid)));
-        }
 
         config.companyInquiries = screensToMap.map(s => ({
           inquiryScreenNameGuid: s.inquiryScreenGuid,
@@ -510,17 +614,8 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           selected: false
         }));
 
-        let productsToMap = res.products;
-        if (baseCompany && baseCompany.products) {
-          productsToMap = res.products.filter(p => baseCompany.products.some(bp => guidEq(bp.productGuid, p.productGuid)));
-        }
-        config.availableProducts = productsToMap;
-
-        let plansToMap = res.plans;
-        if (baseCompany && baseCompany.plans) {
-          plansToMap = res.plans.filter(p => baseCompany.plans.some(bp => guidEq(bp.planGuid, p.planGuid)));
-        }
-        config.availablePlans = plansToMap;
+        config.availableProducts = res.products;
+        config.availablePlans = res.plans;
 
         // Apply existing config if in modify mode
         if (this.existingPayload) {
@@ -606,19 +701,18 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     this.lookupService.getTransactions(undefined, product.productGuid).subscribe({
       next: (txns) => {
-        const baseCompany = this.baseConfig?.securityGroup?.companies?.find(c => guidEq(c.companyGuid, config.company.companyGuid));
-        const baseProduct = baseCompany?.products?.find(p => guidEq(p.productGuid, product.productGuid));
+        const hasBase = !!this.baseConfig;
 
         let pagesToMap = this.allPages;
-        if (baseProduct && baseProduct.productPages) {
-          pagesToMap = this.allPages.filter(p => baseProduct.productPages.some(bp => guidEq(bp.pageGuid, p.pageGuid)));
+        if (hasBase) {
+          pagesToMap = this.allPages.filter(p => this.unionProductPages.has(p.pageGuid.toUpperCase()));
         }
 
         const productPages = pagesToMap.map(p => {
-          const basePage = baseProduct?.productPages?.find(bp => guidEq(bp.pageGuid, p.pageGuid));
+          const pageGuidUpper = p.pageGuid.toUpperCase();
           let buttonsToMap = this.allButtons;
-          if (basePage && basePage.buttons) {
-            buttonsToMap = this.allButtons.filter(b => basePage.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+          if (hasBase) {
+            buttonsToMap = this.allButtons.filter(b => this.unionAllPageButtons.has(b.buttonGuid.toUpperCase()));
           }
           return {
             pageGuid: p.pageGuid,
@@ -633,15 +727,12 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         });
 
         let txnsToMap = txns;
-        if (baseProduct && baseProduct.productTransactions) {
-          txnsToMap = txns.filter(t => baseProduct.productTransactions.some(bt => guidEq(bt.transactionGuid, t.transactionGuid)));
-        }
 
         const productTransactions = txnsToMap.map(t => {
-          const baseTxn = baseProduct?.productTransactions?.find(bt => guidEq(bt.transactionGuid, t.transactionGuid));
+          const txnGuidUpper = t.transactionGuid.toUpperCase();
           let buttonsToMap = this.allButtons;
-          if (baseTxn && baseTxn.buttons) {
-            buttonsToMap = this.allButtons.filter(b => baseTxn.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+          if (hasBase) {
+            buttonsToMap = this.allButtons.filter(b => this.unionAllTxnButtons.has(b.buttonGuid.toUpperCase()));
           }
           return {
             transactionGuid: t.transactionGuid,
@@ -680,17 +771,16 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         productPlansMeta.forEach(planMeta => {
           let planConfig = config.plans.find(p => guidEq(p.planGuid, planMeta.planGuid));
           if (!planConfig) {
-            const basePlan = baseCompany?.plans?.find(bp => guidEq(bp.planGuid, planMeta.planGuid));
             let planPagesToMap = this.allPages;
-            if (basePlan && basePlan.planPages) {
-              planPagesToMap = this.allPages.filter(p => basePlan.planPages.some(bp => guidEq(bp.pageGuid, p.pageGuid)));
+            if (hasBase) {
+              planPagesToMap = this.allPages.filter(p => this.unionPlanPages.has(p.pageGuid.toUpperCase()));
             }
 
             const planPages = planPagesToMap.map(p => {
-              const basePage = basePlan?.planPages?.find(bp => guidEq(bp.pageGuid, p.pageGuid));
+              const pageGuidUpper = p.pageGuid.toUpperCase();
               let buttonsToMap = this.allButtons;
-              if (basePage && basePage.buttons) {
-                buttonsToMap = this.allButtons.filter(b => basePage.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+              if (hasBase) {
+                buttonsToMap = this.allButtons.filter(b => this.unionAllPageButtons.has(b.buttonGuid.toUpperCase()));
               }
               return {
                 pageGuid: p.pageGuid,
@@ -722,15 +812,12 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
             }).subscribe({
               next: (res) => {
                 let planTxnsToMap = res.pTxns;
-                if (basePlan && basePlan.planTransactions) {
-                  planTxnsToMap = res.pTxns.filter(t => basePlan.planTransactions.some(bt => guidEq(bt.transactionGuid, t.transactionGuid)));
-                }
 
                 planConfig!.planTransactions = planTxnsToMap.map(pt => {
-                  const baseTxn = basePlan?.planTransactions?.find(bt => guidEq(bt.transactionGuid, pt.transactionGuid));
+                  const txnGuidUpper = pt.transactionGuid.toUpperCase();
                   let buttonsToMap = this.allButtons;
-                  if (baseTxn && baseTxn.buttons) {
-                    buttonsToMap = this.allButtons.filter(b => baseTxn.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+                  if (hasBase) {
+                    buttonsToMap = this.allButtons.filter(b => this.unionAllTxnButtons.has(b.buttonGuid.toUpperCase()));
                   }
                   return {
                     transactionGuid: pt.transactionGuid,
@@ -745,9 +832,6 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
                 });
 
                 let planInqsToMap = res.inqs;
-                if (basePlan && basePlan.planInquiries) {
-                  planInqsToMap = res.inqs.filter(inq => basePlan.planInquiries.some(bi => guidEq(bi.inquiryScreenNameGuid, inq.inquiryScreenGuid)));
-                }
 
                 planConfig!.planInquiries = planInqsToMap.map(inq => ({
                   inquiryScreenNameGuid: inq.inquiryScreenGuid,
@@ -874,19 +958,18 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     forkJoin(fetches).subscribe({
       next: (res: any) => {
-        const baseCompany = this.baseConfig?.securityGroup?.companies?.find(c => guidEq(c.companyGuid, config.company.companyGuid));
-        const basePlan = baseCompany?.plans?.find(p => guidEq(p.planGuid, plan.planGuid));
+        const hasBase = !!this.baseConfig;
 
         let pagesToMap = this.allPages;
-        if (basePlan && basePlan.planPages) {
-          pagesToMap = this.allPages.filter(p => basePlan.planPages.some(bp => guidEq(bp.pageGuid, p.pageGuid)));
+        if (hasBase) {
+          pagesToMap = this.allPages.filter(p => this.unionPlanPages.has(p.pageGuid.toUpperCase()));
         }
 
         const planPages = pagesToMap.map(p => {
-          const basePage = basePlan?.planPages?.find(bp => guidEq(bp.pageGuid, p.pageGuid));
+          const pageGuidUpper = p.pageGuid.toUpperCase();
           let buttonsToMap = this.allButtons;
-          if (basePage && basePage.buttons) {
-            buttonsToMap = this.allButtons.filter(b => basePage.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+          if (hasBase) {
+            buttonsToMap = this.allButtons.filter(b => this.unionAllPageButtons.has(b.buttonGuid.toUpperCase()));
           }
           return {
             pageGuid: p.pageGuid,
@@ -901,15 +984,12 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         });
 
         let txnsToMap = res.txns;
-        if (basePlan && basePlan.planTransactions) {
-          txnsToMap = res.txns.filter((t: any) => basePlan.planTransactions.some(bt => guidEq(bt.transactionGuid, t.transactionGuid)));
-        }
 
         const planTransactions = txnsToMap.map((t: any) => {
-          const baseTxn = basePlan?.planTransactions?.find(bt => guidEq(bt.transactionGuid, t.transactionGuid));
+          const txnGuidUpper = t.transactionGuid.toUpperCase();
           let buttonsToMap = this.allButtons;
-          if (baseTxn && baseTxn.buttons) {
-            buttonsToMap = this.allButtons.filter(b => baseTxn.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+          if (hasBase) {
+            buttonsToMap = this.allButtons.filter(b => this.unionAllTxnButtons.has(b.buttonGuid.toUpperCase()));
           }
           return {
             transactionGuid: t.transactionGuid,
@@ -924,16 +1004,12 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         });
 
         let prodTxnsToMap = res.prodTxns || [];
-        const baseProduct = baseCompany?.products?.find(p => guidEq(p.productGuid, plan.productGuid));
-        if (baseProduct && baseProduct.productTransactions) {
-          prodTxnsToMap = prodTxnsToMap.filter((pt: any) => baseProduct.productTransactions.some(bpt => guidEq(bpt.transactionGuid, pt.transactionGuid)));
-        }
 
         const productPlanTransactions = prodTxnsToMap.map((pt: any) => {
-          const baseTxn = baseProduct?.productTransactions?.find(bpt => guidEq(bpt.transactionGuid, pt.transactionGuid));
+          const txnGuidUpper = pt.transactionGuid.toUpperCase();
           let buttonsToMap = this.allButtons;
-          if (baseTxn && baseTxn.buttons) {
-            buttonsToMap = this.allButtons.filter(b => baseTxn.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+          if (hasBase) {
+            buttonsToMap = this.allButtons.filter(b => this.unionAllTxnButtons.has(b.buttonGuid.toUpperCase()));
           }
           return {
             transactionGuid: pt.transactionGuid,
@@ -948,9 +1024,6 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         });
 
         let inqsToMap = res.inqs;
-        if (basePlan && basePlan.planInquiries) {
-          inqsToMap = res.inqs.filter((inq: any) => basePlan.planInquiries.some(bi => guidEq(bi.inquiryScreenNameGuid, inq.inquiryScreenGuid)));
-        }
 
         const planInquiries = inqsToMap.map((inq: any) => ({
           inquiryScreenNameGuid: inq.inquiryScreenGuid,
