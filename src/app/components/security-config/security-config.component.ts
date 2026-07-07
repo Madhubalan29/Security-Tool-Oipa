@@ -337,10 +337,10 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       )
     }).subscribe({
       next: (data) => {
-        this.allCompanies = data.companies;
-        this.allPages = data.pages;
-        this.allButtons = data.buttons;
-        this.allWebServices = data.webServices;
+        this.allCompanies = data.companies.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
+        this.allPages = data.pages.sort((a, b) => (a.pageName || '').localeCompare(b.pageName || ''));
+        this.allButtons = data.buttons.sort((a, b) => (a.buttonName || '').localeCompare(b.buttonName || ''));
+        this.allWebServices = data.webServices.sort((a, b) => (a.webServiceName || '').localeCompare(b.webServiceName || ''));
         this.baseConfig = data.baseConfig;
         this.computeBaseConfigUnions();
 
@@ -421,10 +421,10 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         // Re-fetch available products & plans from the API for loaded companies
         if (config.selected || config.loaded) {
           this.lookupService.getProductsByCompany(company.companyGuid)
-            .subscribe(products => config.availableProducts = products);
+            .subscribe(products => config.availableProducts = products.sort((a, b) => (a.productName || '').localeCompare(b.productName || '')));
 
           this.lookupService.getPlansByCompany(company.companyGuid)
-            .subscribe(plans => config.availablePlans = plans);
+            .subscribe(plans => config.availablePlans = plans.sort((a, b) => (a.planName || '').localeCompare(b.planName || '')));
         }
 
         return config;
@@ -606,7 +606,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       plans: this.lookupService.getPlansByCompany(companyGuid)
     }).subscribe({
       next: (res) => {
-        let screensToMap = res.screens;
+        let screensToMap = res.screens.sort((a, b) => (a.screenName || '').localeCompare(b.screenName || ''));
 
         config.companyInquiries = screensToMap.map(s => ({
           inquiryScreenNameGuid: s.inquiryScreenGuid,
@@ -614,8 +614,8 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           selected: false
         }));
 
-        config.availableProducts = res.products;
-        config.availablePlans = res.plans;
+        config.availableProducts = res.products.sort((a, b) => (a.productName || '').localeCompare(b.productName || ''));
+        config.availablePlans = res.plans.sort((a, b) => (a.planName || '').localeCompare(b.planName || ''));
 
         // Apply existing config if in modify mode
         if (this.existingPayload) {
@@ -726,7 +726,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           };
         });
 
-        let txnsToMap = txns;
+        let txnsToMap = txns.sort((a, b) => (a.transactionName || '').localeCompare(b.transactionName || ''));
 
         const productTransactions = txnsToMap.map(t => {
           const txnGuidUpper = t.transactionGuid.toUpperCase();
@@ -983,7 +983,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           };
         });
 
-        let txnsToMap = res.txns;
+        let txnsToMap = res.txns.sort((a: any, b: any) => (a.transactionName || '').localeCompare(b.transactionName || ''));
 
         const planTransactions = txnsToMap.map((t: any) => {
           const txnGuidUpper = t.transactionGuid.toUpperCase();
@@ -1003,7 +1003,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           };
         });
 
-        let prodTxnsToMap = res.prodTxns || [];
+        let prodTxnsToMap = (res.prodTxns || []).sort((a: any, b: any) => (a.transactionName || '').localeCompare(b.transactionName || ''));
 
         const productPlanTransactions = prodTxnsToMap.map((pt: any) => {
           const txnGuidUpper = pt.transactionGuid.toUpperCase();
@@ -1023,7 +1023,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           };
         });
 
-        let inqsToMap = res.inqs;
+        let inqsToMap = res.inqs.sort((a: any, b: any) => (a.screenName || '').localeCompare(b.screenName || ''));
 
         const planInquiries = inqsToMap.map((inq: any) => ({
           inquiryScreenNameGuid: inq.inquiryScreenGuid,
@@ -2331,12 +2331,12 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getConfiguredPages(pages: CompanyPageDto[] | undefined): CompanyPageDto[] {
     if (!pages) return [];
-    return pages.filter(p => p.configured);
+    return pages.filter(p => p.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   getConfiguredButtons(buttons: ButtonDto[] | undefined): ButtonDto[] {
     if (!buttons) return [];
-    return buttons.filter(b => b.configured);
+    return buttons.filter(b => b.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   hasConfiguredInquiries(inquiries: any[] | undefined): boolean {
@@ -2345,7 +2345,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getConfiguredInquiries(inquiries: any[] | undefined): any[] {
     if (!inquiries) return [];
-    return inquiries.filter(i => i.configured);
+    return inquiries.filter(i => i.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   hasConfiguredWebServices(webServices: any[] | undefined): boolean {
@@ -2354,7 +2354,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getConfiguredWebServices(webServices: any[] | undefined): any[] {
     if (!webServices) return [];
-    return webServices.filter(w => w.configured);
+    return webServices.filter(w => w.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   hasConfiguredProducts(products: ProductConfig[] | undefined): boolean {
@@ -2363,7 +2363,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getConfiguredProducts(products: ProductConfig[] | undefined): ProductConfig[] {
     if (!products) return [];
-    return products.filter(p => p.configured);
+    return products.filter(p => p.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   hasConfiguredTransactions(txns: any[] | undefined): boolean {
@@ -2372,7 +2372,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getConfiguredTransactions(txns: any[] | undefined): any[] {
     if (!txns) return [];
-    return txns.filter(t => t.configured);
+    return txns.filter(t => t.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   getMergedConfiguredTransactions(plan: PlanConfig): any[] {
@@ -2386,7 +2386,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getConfiguredPlans(plans: PlanConfig[] | undefined): PlanConfig[] {
     if (!plans) return [];
-    return plans.filter(p => p.configured);
+    return plans.filter(p => p.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   hasAnyConfiguredPermissions(): boolean {
@@ -3600,61 +3600,95 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   get filteredCompanyPages(): CompanyPageDto[] {
     if (!this.activeConfig) return [];
     const filter = this.activeConfig.pageFilter || '';
-    if (!filter) return this.activeConfig.companyPages;
-    const q = filter.toLowerCase();
-    return this.activeConfig.companyPages.filter(p => (p.name || '').toLowerCase().includes(q));
+    let pages = this.activeConfig.companyPages;
+    if (filter) {
+      const q = filter.toLowerCase();
+      pages = pages.filter(p => (p.name || '').toLowerCase().includes(q));
+    }
+    return [...pages].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   get filteredInquiries(): (CompanyInquiryDto & { name?: string })[] {
     if (!this.activeConfig) return [];
     const filter = this.activeConfig.inquiryFilter || '';
-    if (!filter) return this.activeConfig.companyInquiries;
-    const q = filter.toLowerCase();
-    return this.activeConfig.companyInquiries.filter(i => (i.name || '').toLowerCase().includes(q));
+    let inquiries = this.activeConfig.companyInquiries;
+    if (filter) {
+      const q = filter.toLowerCase();
+      inquiries = inquiries.filter(i => (i.name || '').toLowerCase().includes(q));
+    }
+    return [...inquiries].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   get filteredWebServices(): (CompanyWebServiceDto & { name?: string })[] {
     if (!this.activeConfig) return [];
     const filter = this.activeConfig.webServiceFilter || '';
-    if (!filter) return this.activeConfig.companyWebServices;
-    const q = filter.toLowerCase();
-    return this.activeConfig.companyWebServices.filter(w => (w.name || '').toLowerCase().includes(q));
+    let webServices = this.activeConfig.companyWebServices;
+    if (filter) {
+      const q = filter.toLowerCase();
+      webServices = webServices.filter(w => (w.name || '').toLowerCase().includes(q));
+    }
+    return [...webServices].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  get sortedProducts(): ProductConfig[] {
+    if (!this.activeConfig || !this.activeConfig.products) return [];
+    return [...this.activeConfig.products].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  get sortedPlans(): PlanConfig[] {
+    if (!this.activeConfig || !this.activeConfig.plans) return [];
+    return [...this.activeConfig.plans].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   filterProductPages(product: ProductConfig): CompanyPageDto[] {
     const filter = product.pageFilter || '';
-    if (!filter) return product.productPages;
-    const q = filter.toLowerCase();
-    return product.productPages.filter(p => (p.name || '').toLowerCase().includes(q));
+    let pages = product.productPages;
+    if (filter) {
+      const q = filter.toLowerCase();
+      pages = pages.filter(p => (p.name || '').toLowerCase().includes(q));
+    }
+    return [...pages].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   filterProductTxns(product: ProductConfig): (ProductTransactionDto & { name?: string })[] {
     const filter = product.txnFilter || '';
-    if (!filter) return product.productTransactions;
-    const q = filter.toLowerCase();
-    return product.productTransactions.filter(t => (t.name || '').toLowerCase().includes(q));
+    let txns = product.productTransactions;
+    if (filter) {
+      const q = filter.toLowerCase();
+      txns = txns.filter(t => (t.name || '').toLowerCase().includes(q));
+    }
+    return [...txns].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   filterPlanPages(plan: PlanConfig): CompanyPageDto[] {
     const filter = plan.pageFilter || '';
-    if (!filter) return plan.planPages;
-    const q = filter.toLowerCase();
-    return plan.planPages.filter(p => (p.name || '').toLowerCase().includes(q));
+    let pages = plan.planPages;
+    if (filter) {
+      const q = filter.toLowerCase();
+      pages = pages.filter(p => (p.name || '').toLowerCase().includes(q));
+    }
+    return [...pages].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   filterPlanTxns(plan: PlanConfig): (PlanTransactionDto & { name?: string })[] {
     const filter = plan.txnFilter || '';
-    if (!filter) return plan.planTransactions;
-    const q = filter.toLowerCase();
-    return plan.planTransactions.filter(t => (t.name || '').toLowerCase().includes(q));
+    let txns = plan.planTransactions;
+    if (filter) {
+      const q = filter.toLowerCase();
+      txns = txns.filter(t => (t.name || '').toLowerCase().includes(q));
+    }
+    return [...txns].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   filterProductPlanTxns(plan: PlanConfig): (PlanTransactionDto & { name?: string })[] {
     if (!plan.productPlanTransactions) return [];
     const filter = plan.txnFilter || '';
-    if (!filter) return plan.productPlanTransactions;
-    const q = filter.toLowerCase();
-    return plan.productPlanTransactions.filter(t => (t.name || '').toLowerCase().includes(q));
+    let txns = plan.productPlanTransactions;
+    if (filter) {
+      const q = filter.toLowerCase();
+      txns = txns.filter(t => (t.name || '').toLowerCase().includes(q));
+    }
+    return [...txns].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
 
@@ -3731,18 +3765,20 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getDirectPlans(config: CompanyConfig | null | undefined): PlanConfig[] {
     if (!config || !config.plans || !config.availablePlans) return [];
-    return config.plans.filter(p => {
+    const directPlans = config.plans.filter(p => {
       const planMeta = config.availablePlans.find(meta => guidEq(meta.planGuid, p.planGuid));
       return !planMeta?.productGuid || !config.products.some(prod => guidEq(prod.productGuid, planMeta.productGuid));
     });
+    return [...directPlans].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   getProductPlans(config: CompanyConfig | null | undefined): PlanConfig[] {
     if (!config || !config.plans || !config.availablePlans) return [];
-    return config.plans.filter(p => {
+    const productPlans = config.plans.filter(p => {
       const planMeta = config.availablePlans.find(meta => guidEq(meta.planGuid, p.planGuid));
       return !!planMeta?.productGuid;
     });
+    return [...productPlans].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   // ══════════════════════════════════════════
@@ -3752,14 +3788,17 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   /** Filter buttons inside a page/transaction by a localized filter text. */
   filterButtons(buttons: ButtonDto[], filterText?: string): ButtonDto[] {
     const filter = filterText || '';
-    if (!filter) return buttons;
-    const q = filter.toLowerCase();
-    return buttons.filter(b => (b.name || '').toLowerCase().includes(q));
+    let filtered = buttons;
+    if (filter) {
+      const q = filter.toLowerCase();
+      filtered = buttons.filter(b => (b.name || '').toLowerCase().includes(q));
+    }
+    return [...filtered].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   /** Get all distinct buttons available across the active company's pages and transactions. */
   getAvailableButtons(): ButtonDto[] {
-    if (!this.activeConfig) return this.allButtons;
+    if (!this.activeConfig) return [...this.allButtons].sort((a, b) => (a.buttonName || '').localeCompare(b.buttonName || ''));
     const seen = new Set<string>();
     const result: ButtonDto[] = [];
     const addBtn = (b: ButtonDto) => {
@@ -3783,9 +3822,12 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getFilteredAvailableButtons(query: string): ButtonDto[] {
     const buttons = this.getAvailableButtons();
-    if (!query) return buttons;
-    const q = query.toLowerCase().trim();
-    return buttons.filter(b => (b.name || '').toLowerCase().includes(q));
+    let filtered = buttons;
+    if (query) {
+      const q = query.toLowerCase().trim();
+      filtered = buttons.filter(b => (b.name || '').toLowerCase().includes(q));
+    }
+    return [...filtered].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   // ── Company Pages: Bulk Button Toggle ──

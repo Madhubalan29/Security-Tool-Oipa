@@ -494,7 +494,7 @@
               </mat-expansion-panel>
             </mat-accordion>
 
-            <p *ngIf="filteredCompanyPages.length === 0 && pageFilter" class="empty-text">No pages match "{{ pageFilter }}"</p>
+            <p *ngIf="filteredCompanyPages.length === 0 && activeConfig.pageFilter" class="empty-text">No pages match "{{ activeConfig.pageFilter }}"</p>
           </div>
           </ng-template>
         </mat-tab>
@@ -533,7 +533,7 @@
                     <span>{{ inq.name }}</span>
                     <mat-slide-toggle [checked]="inq.selected" (change)="inq.selected = $event.checked" [disabled]="mode === 'view'"></mat-slide-toggle>
                   </div>
-                  <p *ngIf="filteredInquiries.length === 0" class="empty-text">{{ inquiryFilter ? 'No matches' : 'No inquiry screens available' }}</p>
+                  <p *ngIf="filteredInquiries.length === 0" class="empty-text">{{ activeConfig.inquiryFilter ? 'No matches' : 'No inquiry screens available' }}</p>
                 </div>
               </div>
 
@@ -562,7 +562,7 @@
                     <span>{{ ws.name }}</span>
                     <mat-slide-toggle [checked]="ws.selected" (change)="ws.selected = $event.checked" [disabled]="mode === 'view'"></mat-slide-toggle>
                   </div>
-                  <p *ngIf="filteredWebServices.length === 0" class="empty-text">{{ webServiceFilter ? 'No matches' : 'No web services available' }}</p>
+                  <p *ngIf="filteredWebServices.length === 0" class="empty-text">{{ activeConfig.webServiceFilter ? 'No matches' : 'No web services available' }}</p>
                 </div>
               </div>
             </div>
@@ -665,7 +665,7 @@
 
             <!-- Product expansion panels -->
             <mat-accordion multi class="entity-accordion">
-              <mat-expansion-panel *ngFor="let product of activeConfig.products">
+              <mat-expansion-panel *ngFor="let product of sortedProducts">
                 <mat-expansion-panel-header>
                   <mat-panel-title class="entity-panel-title">
                     <mat-icon class="entity-icon product">inventory_2</mat-icon>
@@ -804,7 +804,7 @@
               </mat-expansion-panel>
             </mat-accordion>
 
-            <p *ngIf="activeConfig.products.length === 0" class="empty-text">No products added yet. Use the selector above to add products.</p>
+            <p *ngIf="sortedProducts.length === 0" class="empty-text">No products added yet. Use the selector above to add products.</p>
           </div>
           </ng-template>
         </mat-tab>
@@ -914,7 +914,7 @@
 
               <!-- Plan Pages Expansion Panels -->
               <mat-accordion multi class="entity-accordion">
-                <mat-expansion-panel *ngFor="let plan of activeConfig.plans">
+                <mat-expansion-panel *ngFor="let plan of sortedPlans">
                   <mat-expansion-panel-header>
                     <mat-panel-title class="entity-panel-title">
                       <mat-icon class="entity-icon plan">assignment</mat-icon>
@@ -989,7 +989,7 @@
                   </mat-accordion>
                 </mat-expansion-panel>
               </mat-accordion>
-              <p *ngIf="activeConfig.plans.length === 0" class="empty-text">No plans added yet. Use the selector above or add a product to include plans.</p>
+              <p *ngIf="sortedPlans.length === 0" class="empty-text">No plans added yet. Use the selector above or add a product to include plans.</p>
             </div>
 
             <!-- ──── COMPARTMENT 2: INDEPENDENT PLAN LEVEL TRANSACTIONS ──── -->
@@ -1004,7 +1004,7 @@
 
               <!-- Plan expansion panels (Transactions ONLY) -->
               <mat-accordion multi class="entity-accordion">
-                <mat-expansion-panel *ngFor="let plan of activeConfig.plans">
+                <mat-expansion-panel *ngFor="let plan of sortedPlans">
                   <mat-expansion-panel-header>
                     <mat-panel-title class="entity-panel-title">
                       <mat-icon class="entity-icon plan">assignment</mat-icon>
@@ -1070,7 +1070,7 @@
                   </mat-accordion>
                 </mat-expansion-panel>
               </mat-accordion>
-              <p *ngIf="activeConfig.plans.length === 0" class="empty-text">No plans added yet.</p>
+              <p *ngIf="sortedPlans.length === 0" class="empty-text">No plans added yet.</p>
             </div>
 
             <!-- ──── COMPARTMENT 3: PRODUCT LEVEL TRANSACTIONS FOR PLANS ──── -->
@@ -1119,8 +1119,8 @@
                   </div>
                   <mat-form-field appearance="outline" class="filter-field compact nested">
                     <mat-icon matPrefix>filter_list</mat-icon>
-                    <input matInput [(ngModel)]="planTxnFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter transactions...">
-                    <button *ngIf="planTxnFilter" mat-icon-button matSuffix (click)="planTxnFilter = ''">
+                    <input matInput [(ngModel)]="plan.txnFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter transactions...">
+                    <button *ngIf="plan.txnFilter" mat-icon-button matSuffix (click)="plan.txnFilter = ''">
                       <mat-icon>close</mat-icon>
                     </button>
                   </mat-form-field>
