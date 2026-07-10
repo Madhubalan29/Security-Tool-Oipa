@@ -52,10 +52,11 @@ export class LookupService {
     return this.http.get<AsTransaction[]>(`${this.baseUrl}/transactions`, { params });
   }
 
-  getInquiryScreens(companyGuid?: string, planGuid?: string): Observable<AsInquiryScreen[]> {
+  getInquiryScreens(companyGuid?: string, planGuid?: string, productGuid?: string): Observable<AsInquiryScreen[]> {
     let params = new HttpParams();
     if (companyGuid) params = params.set('companyGuid', companyGuid);
     if (planGuid) params = params.set('planGuid', planGuid);
+    if (productGuid) params = params.set('productGuid', productGuid);
     return this.http.get<AsInquiryScreen[]>(`${this.baseUrl}/inquiry-screens`, { params });
   }
 

@@ -10,9 +10,24 @@
 set -e
 
 # --- CONFIGURATION SECTION ---
-SERVER_IP="10.10.3.237"
-SERVER_USER="atumverse"
-SERVER_PORT="22"
+# Define target environment. Defaults to "dev".
+# Usage: ./deploy.sh [dev|prod|custom_ip]
+TARGET_ENV=${1:-dev}
+
+if [ "$TARGET_ENV" == "dev" ]; then
+    SERVER_IP="10.10.3.237"
+    SERVER_USER="atumverse"
+    SERVER_PORT="22"
+elif [ "$TARGET_ENV" == "prod" ]; then
+    SERVER_IP="10.20.9.21"
+    SERVER_USER="profinch"
+    SERVER_PORT="22"
+else
+    # Assume the argument is a raw IP address
+    SERVER_IP="$TARGET_ENV"
+    SERVER_USER="atumverse"
+    SERVER_PORT="22"
+fi
 
 # Local Path (using relative path since script is in the frontend root)
 LOCAL_FRONTEND_DIR="$(cd "$(dirname "$0")" && pwd)"

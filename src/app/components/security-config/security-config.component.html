@@ -255,7 +255,15 @@
                           </div>
                         </div>
                       </div>
- 
+                      <!-- Product Inquiry Screens -->
+                      <div class="tree-sub-section" *ngIf="hasConfiguredInquiries(prod.productInquiries)">
+                        <div class="sub-section-title">Inquiry Screens</div>
+                        <div *ngFor="let inq of getConfiguredInquiries(prod.productInquiries)" class="tree-leaf-node">
+                          <mat-icon class="leaf-icon">find_in_page</mat-icon>
+                          <span>{{ inq.name }}</span>
+                        </div>
+                      </div>
+
                     </div>
                   </div>
                 </div>
@@ -358,7 +366,7 @@
     </div>
 
     <!-- Active company config panel -->
-    <div *ngIf="activeConfig && (mode !== 'view' || viewType === 'tabs')" class="config-panel">
+    <div *ngIf="activeConfig && (mode !== 'view' || $any(viewType) === 'tabs')" class="config-panel">
       <!-- Sub-tabs: Pages, Inquiries/WS, Products, Plans -->
       <mat-tab-group [(selectedIndex)]="activeTabIndex" class="config-tabs" animationDuration="0ms">
 
@@ -494,7 +502,7 @@
               </mat-expansion-panel>
             </mat-accordion>
 
-            <p *ngIf="filteredCompanyPages.length === 0 && pageFilter" class="empty-text">No pages match "{{ pageFilter }}"</p>
+            <p *ngIf="filteredCompanyPages.length === 0 && activeConfig.pageFilter" class="empty-text">No pages match "{{ activeConfig.pageFilter }}"</p>
           </div>
           </ng-template>
         </mat-tab>
@@ -528,12 +536,17 @@
                     <mat-icon>close</mat-icon>
                   </button>
                 </mat-form-field>
-                <div class="toggle-list">
-                  <div *ngFor="let inq of filteredInquiries" class="toggle-item">
-                    <span>{{ inq.name }}</span>
-                    <mat-slide-toggle [checked]="inq.selected" (change)="inq.selected = $event.checked" [disabled]="mode === 'view'"></mat-slide-toggle>
+                <div class="toggle-list-grouped">
+                  <div *ngFor="let group of getGroupedInquiries(filteredInquiries); trackBy: trackByTypeName" class="inquiry-type-group">
+                    <h4 class="inquiry-group-title">{{ group.typeName }}</h4>
+                    <div class="toggle-list nested-toggle-list">
+                      <div *ngFor="let inq of group.items; trackBy: trackByGuid" class="toggle-item">
+                        <span>{{ inq.name }}</span>
+                        <mat-slide-toggle [checked]="inq.selected" (change)="inq.selected = $event.checked" [disabled]="mode === 'view'"></mat-slide-toggle>
+                      </div>
+                    </div>
                   </div>
-                  <p *ngIf="filteredInquiries.length === 0" class="empty-text">{{ inquiryFilter ? 'No matches' : 'No inquiry screens available' }}</p>
+                  <p *ngIf="filteredInquiries.length === 0" class="empty-text">{{ activeConfig.inquiryFilter ? 'No matches' : 'No inquiry screens available' }}</p>
                 </div>
               </div>
 
@@ -562,7 +575,7 @@
                     <span>{{ ws.name }}</span>
                     <mat-slide-toggle [checked]="ws.selected" (change)="ws.selected = $event.checked" [disabled]="mode === 'view'"></mat-slide-toggle>
                   </div>
-                  <p *ngIf="filteredWebServices.length === 0" class="empty-text">{{ webServiceFilter ? 'No matches' : 'No web services available' }}</p>
+                  <p *ngIf="filteredWebServices.length === 0" class="empty-text">{{ activeConfig.webServiceFilter ? 'No matches' : 'No web services available' }}</p>
                 </div>
               </div>
             </div>
@@ -665,7 +678,7 @@
 
             <!-- Product expansion panels -->
             <mat-accordion multi class="entity-accordion">
-              <mat-expansion-panel *ngFor="let product of activeConfig.products">
+              <mat-expansion-panel *ngFor="let product of sortedProducts">
                 <mat-expansion-panel-header>
                   <mat-panel-title class="entity-panel-title">
                     <mat-icon class="entity-icon product">inventory_2</mat-icon>
@@ -800,11 +813,45 @@
                   </mat-expansion-panel>
                 </mat-accordion>
 
-                <p *ngIf="product.productTransactions.length === 0" class="empty-text nested">No transactions available for this product</p>
+                <!-- Product Inquiries sub-accordion -->
+                <div class="section-header-row compact nested" style="margin-top: 20px;">
+                  <h4 class="sub-section-title">Product Inquiry Screens</h4>
+                  <div class="bulk-actions-bar" *ngIf="mode !== 'view'">
+                    <button mat-stroked-button class="bulk-btn select sm" (click)="selectAllProductInqs(product, true)" [disabled]="areAllProductInquiriesSelected(product)">
+                      <mat-icon>done_all</mat-icon> All
+                    </button>
+                    <button mat-stroked-button class="bulk-btn deselect sm" (click)="selectAllProductInqs(product, false)">
+                      <mat-icon>remove_done</mat-icon> None
+                    </button>
+                  </div>
+                </div>
+                <!-- Filter -->
+                <mat-form-field appearance="outline" class="filter-field compact nested">
+                  <mat-icon matPrefix>filter_list</mat-icon>
+                  <input matInput [(ngModel)]="product.inquiryFilter" placeholder="Filter inquiries...">
+                  <button *ngIf="product.inquiryFilter" mat-icon-button matSuffix (click)="product.inquiryFilter = ''">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </mat-form-field>
+
+                <div class="toggle-list-grouped nested">
+                  <div *ngFor="let group of getGroupedInquiries(filterProductInquiries(product)); trackBy: trackByTypeName" class="inquiry-type-group">
+                    <h5 class="inquiry-group-title nested">{{ group.typeName }}</h5>
+                    <div class="toggle-list nested-toggle-list">
+                      <div *ngFor="let inq of group.items; trackBy: trackByGuid" class="toggle-item nested">
+                        <span>{{ inq.name }}</span>
+                        <mat-slide-toggle [checked]="inq.selected" (change)="inq.selected = $event.checked" [disabled]="mode === 'view'"></mat-slide-toggle>
+                      </div>
+                    </div>
+                  </div>
+                  <p *ngIf="filterProductInquiries(product).length === 0" class="empty-text nested">{{ product.inquiryFilter ? 'No matches' : 'No inquiry screens available' }}</p>
+                </div>
+
+                <p *ngIf="product.productTransactions.length === 0 && product.productInquiries.length === 0" class="empty-text nested">No configuration elements available for this product</p>
               </mat-expansion-panel>
             </mat-accordion>
 
-            <p *ngIf="activeConfig.products.length === 0" class="empty-text">No products added yet. Use the selector above to add products.</p>
+            <p *ngIf="sortedProducts.length === 0" class="empty-text">No products added yet. Use the selector above to add products.</p>
           </div>
           </ng-template>
         </mat-tab>
@@ -914,7 +961,7 @@
 
               <!-- Plan Pages Expansion Panels -->
               <mat-accordion multi class="entity-accordion">
-                <mat-expansion-panel *ngFor="let plan of activeConfig.plans">
+                <mat-expansion-panel *ngFor="let plan of sortedPlans">
                   <mat-expansion-panel-header>
                     <mat-panel-title class="entity-panel-title">
                       <mat-icon class="entity-icon plan">assignment</mat-icon>
@@ -989,7 +1036,7 @@
                   </mat-accordion>
                 </mat-expansion-panel>
               </mat-accordion>
-              <p *ngIf="activeConfig.plans.length === 0" class="empty-text">No plans added yet. Use the selector above or add a product to include plans.</p>
+              <p *ngIf="sortedPlans.length === 0" class="empty-text">No plans added yet. Use the selector above or add a product to include plans.</p>
             </div>
 
             <!-- ──── COMPARTMENT 2: INDEPENDENT PLAN LEVEL TRANSACTIONS ──── -->
@@ -1004,7 +1051,7 @@
 
               <!-- Plan expansion panels (Transactions ONLY) -->
               <mat-accordion multi class="entity-accordion">
-                <mat-expansion-panel *ngFor="let plan of activeConfig.plans">
+                <mat-expansion-panel *ngFor="let plan of sortedPlans">
                   <mat-expansion-panel-header>
                     <mat-panel-title class="entity-panel-title">
                       <mat-icon class="entity-icon plan">assignment</mat-icon>
@@ -1070,7 +1117,7 @@
                   </mat-accordion>
                 </mat-expansion-panel>
               </mat-accordion>
-              <p *ngIf="activeConfig.plans.length === 0" class="empty-text">No plans added yet.</p>
+              <p *ngIf="sortedPlans.length === 0" class="empty-text">No plans added yet.</p>
             </div>
 
             <!-- ──── COMPARTMENT 3: PRODUCT LEVEL TRANSACTIONS FOR PLANS ──── -->
@@ -1119,8 +1166,8 @@
                   </div>
                   <mat-form-field appearance="outline" class="filter-field compact nested">
                     <mat-icon matPrefix>filter_list</mat-icon>
-                    <input matInput [(ngModel)]="planTxnFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter transactions...">
-                    <button *ngIf="planTxnFilter" mat-icon-button matSuffix (click)="planTxnFilter = ''">
+                    <input matInput [(ngModel)]="plan.txnFilter" [ngModelOptions]="{standalone: true}" placeholder="Filter transactions...">
+                    <button *ngIf="plan.txnFilter" mat-icon-button matSuffix (click)="plan.txnFilter = ''">
                       <mat-icon>close</mat-icon>
                     </button>
                   </mat-form-field>
@@ -1166,6 +1213,63 @@
                 </mat-expansion-panel>
               </mat-accordion>
               <p *ngIf="getProductPlans(activeConfig).length === 0" class="empty-text">No product plans available. Select products under the "Products" tab to see them here.</p>
+            </div>
+
+            <!-- ──── COMPARTMENT 4: PLAN LEVEL INQUIRY SCREENS ──── -->
+            <div class="compartment-section plan-inquiries-section" style="margin-top: 30px;">
+              <div class="compartment-header">
+                <mat-icon class="compartment-icon company">search</mat-icon>
+                <div>
+                  <h3 class="compartment-title">Plan Inquiry Screens Configuration</h3>
+                  <p class="compartment-desc">Configure inquiry screens for all plans independently</p>
+                </div>
+              </div>
+
+              <!-- Plan expansion panels (Inquiries ONLY) -->
+              <mat-accordion multi class="entity-accordion">
+                <mat-expansion-panel *ngFor="let plan of sortedPlans">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title class="entity-panel-title">
+                      <mat-icon class="entity-icon plan">assignment</mat-icon>
+                      <span>{{ plan.name }}</span>
+                    </mat-panel-title>
+                  </mat-expansion-panel-header>
+
+                  <div class="section-header-row compact nested">
+                    <h4 class="sub-section-title">Plan Inquiry Screens</h4>
+                    <div class="bulk-actions-bar" *ngIf="mode !== 'view'">
+                      <button mat-stroked-button class="bulk-btn select sm" (click)="selectAllPlanInqs(plan, true)" [disabled]="areAllPlanInquiriesSelected(plan)">
+                        <mat-icon>done_all</mat-icon> All
+                      </button>
+                      <button mat-stroked-button class="bulk-btn deselect sm" (click)="selectAllPlanInqs(plan, false)">
+                        <mat-icon>remove_done</mat-icon> None
+                      </button>
+                    </div>
+                  </div>
+                  <!-- Filter -->
+                  <mat-form-field appearance="outline" class="filter-field compact nested">
+                    <mat-icon matPrefix>filter_list</mat-icon>
+                    <input matInput [(ngModel)]="plan.inquiryFilter" placeholder="Filter inquiries...">
+                    <button *ngIf="plan.inquiryFilter" mat-icon-button matSuffix (click)="plan.inquiryFilter = ''">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </mat-form-field>
+
+                  <div class="toggle-list-grouped nested">
+                    <div *ngFor="let group of getGroupedInquiries(filterPlanInquiries(plan)); trackBy: trackByTypeName" class="inquiry-type-group">
+                      <h5 class="inquiry-group-title nested">{{ group.typeName }}</h5>
+                      <div class="toggle-list nested-toggle-list">
+                        <div *ngFor="let inq of group.items; trackBy: trackByGuid" class="toggle-item nested">
+                          <span>{{ inq.name }}</span>
+                          <mat-slide-toggle [checked]="inq.selected" (change)="inq.selected = $event.checked" [disabled]="mode === 'view'"></mat-slide-toggle>
+                        </div>
+                      </div>
+                    </div>
+                    <p *ngIf="filterPlanInquiries(plan).length === 0" class="empty-text nested">{{ plan.inquiryFilter ? 'No matches' : 'No inquiry screens available' }}</p>
+                  </div>
+                </mat-expansion-panel>
+              </mat-accordion>
+              <p *ngIf="sortedPlans.length === 0" class="empty-text">No plans added yet.</p>
             </div>
 
           </div>

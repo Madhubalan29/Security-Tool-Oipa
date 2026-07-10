@@ -1,0 +1,20 @@
+{
+  "/api/ivs": {
+    "target": "http://10.20.9.21:9097",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/PASService": {
+    "target": "http://10.20.22.66:9011/",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/api": {
+    "target": "http://10.20.9.21:8015",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  }
+}

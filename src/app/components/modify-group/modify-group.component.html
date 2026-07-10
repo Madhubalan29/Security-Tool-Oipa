@@ -59,9 +59,15 @@
     </div>
 
     <!-- Warning message for IT ADMIN in modify mode -->
-    <div *ngIf="!isCloneMode && !isViewMode && isItAdminSelected" class="warning-banner">
+    <div *ngIf="!isCloneMode && !isViewMode && isItAdminSelected && !canModifyItAdmin" class="warning-banner">
       <mat-icon>warning</mat-icon>
       <span>The <strong>IT ADMIN</strong> security group is the system base group and cannot be modified. You may clone it or view its permissions instead.</span>
+    </div>
+
+    <!-- Info message for authorized admins modifying IT ADMIN -->
+    <div *ngIf="!isCloneMode && !isViewMode && isItAdminSelected && canModifyItAdmin" class="info-banner">
+      <mat-icon>info</mat-icon>
+      <span>You have administrative privileges to modify the <strong>IT ADMIN</strong> security group.</span>
     </div>
 
     <!-- Action -->
@@ -73,7 +79,7 @@
         </mat-form-field>
       </div>
       <button mat-button routerLink="/security-group" class="cancel-btn" [disabled]="isProcessing">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="!selectedGuid || (isCloneMode && !newCloneName) || (!isCloneMode && !isViewMode && isItAdminSelected) || isProcessing" (click)="proceedToConfig()" class="submit-btn">
+      <button mat-raised-button color="primary" [disabled]="!selectedGuid || (isCloneMode && !newCloneName) || (!isCloneMode && !isViewMode && isItAdminSelected && !canModifyItAdmin) || isProcessing" (click)="proceedToConfig()" class="submit-btn">
         <mat-spinner *ngIf="isProcessing" diameter="20" class="btn-spinner"></mat-spinner>
         <mat-icon *ngIf="!isProcessing">{{ isCloneMode ? 'content_copy' : isViewMode ? 'visibility' : 'settings' }}</mat-icon>
         <span>{{ isProcessing ? (isCloneMode ? 'Cloning...' : isViewMode ? 'Configuring...' : 'Configuring...') : (isCloneMode ? 'Clone & Configure' : isViewMode ? 'View Permissions' : 'Configure Permissions') }}</span>

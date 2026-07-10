@@ -49,8 +49,10 @@ interface ProductConfig {
   selected: boolean;
   productPages: CompanyPageDto[];
   productTransactions: (ProductTransactionDto & { name?: string })[];
+  productInquiries: (CompanyInquiryDto & { name?: string, typeCode?: string, typeName?: string })[];
   pageFilter?: string;
   txnFilter?: string;
+  inquiryFilter?: string;
   configured?: boolean;
 }
 
@@ -61,9 +63,10 @@ interface PlanConfig {
   planPages: CompanyPageDto[];
   planTransactions: (PlanTransactionDto & { name?: string })[];
   productPlanTransactions?: (PlanTransactionDto & { name?: string })[];
-  planInquiries: (CompanyInquiryDto & { name?: string })[];
+  planInquiries: (CompanyInquiryDto & { name?: string, typeCode?: string, typeName?: string })[];
   pageFilter?: string;
   txnFilter?: string;
+  inquiryFilter?: string;
   configured?: boolean;
 }
 
@@ -127,7 +130,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   activeStep = 0; // 0 = company selection, 1 = configuration
   activeCompanyIndex = 0;
   activeTabIndex = 0;
-  viewType: 'tree' | 'tabs' = 'tree';
+  viewType: string = 'tree';
   expandedNodes: { [key: string]: boolean } = {};
 
   // Selection state for add-entity dropdowns
@@ -183,6 +186,127 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   authTxnToTxnMap = new Map<string, string>();
   authPageToPageMap = new Map<string, string>();
 
+  // Union maps and sets derived from IT Admin (baseConfig)
+  unionCompanyPages = new Map<string, Set<string>>(); // pageGuid -> Set of buttonGuids
+  unionProductPages = new Map<string, Set<string>>(); // pageGuid -> Set of buttonGuids
+  unionPlanPages = new Map<string, Set<string>>(); // pageGuid -> Set of buttonGuids
+  unionProductTxnButtons = new Map<string, Set<string>>(); // transactionGuid -> Set of buttonGuids
+  unionPlanTxnButtons = new Map<string, Set<string>>(); // transactionGuid -> Set of buttonGuids
+  unionAllPageButtons = new Set<string>(); // Set of all buttonGuids across all pages
+  unionAllTxnButtons = new Set<string>();  // Set of all buttonGuids across all transactions
+
+  computeBaseConfigUnions(): void {
+    this.unionCompanyPages.clear();
+    this.unionProductPages.clear();
+    this.unionPlanPages.clear();
+    this.unionProductTxnButtons.clear();
+    this.unionPlanTxnButtons.clear();
+    this.unionAllPageButtons.clear();
+    this.unionAllTxnButtons.clear();
+
+    if (!this.baseConfig || !this.baseConfig.securityGroup || !this.baseConfig.securityGroup.companies) {
+      return;
+    }
+
+    this.baseConfig.securityGroup.companies.forEach(company => {
+      // 1. Company Pages & Buttons
+      if (company.companyPages) {
+        company.companyPages.forEach(cp => {
+          const pageGuid = cp.pageGuid.toUpperCase();
+          if (!this.unionCompanyPages.has(pageGuid)) {
+            this.unionCompanyPages.set(pageGuid, new Set<string>());
+          }
+          const buttonSet = this.unionCompanyPages.get(pageGuid)!;
+          if (cp.buttons) {
+            cp.buttons.forEach(b => {
+              const bGuid = b.buttonGuid.toUpperCase();
+              buttonSet.add(bGuid);
+              this.unionAllPageButtons.add(bGuid);
+            });
+          }
+        });
+      }
+
+      // 2. Product Pages & Transaction Buttons
+      if (company.products) {
+        company.products.forEach(prod => {
+          if (prod.productPages) {
+            prod.productPages.forEach(pp => {
+              const pageGuid = pp.pageGuid.toUpperCase();
+              if (!this.unionProductPages.has(pageGuid)) {
+                this.unionProductPages.set(pageGuid, new Set<string>());
+              }
+              const buttonSet = this.unionProductPages.get(pageGuid)!;
+              if (pp.buttons) {
+                pp.buttons.forEach(b => {
+                  const bGuid = b.buttonGuid.toUpperCase();
+                  buttonSet.add(bGuid);
+                  this.unionAllPageButtons.add(bGuid);
+                });
+              }
+            });
+          }
+
+          if (prod.productTransactions) {
+            prod.productTransactions.forEach(pt => {
+              const txnGuid = pt.transactionGuid.toUpperCase();
+              if (!this.unionProductTxnButtons.has(txnGuid)) {
+                this.unionProductTxnButtons.set(txnGuid, new Set<string>());
+              }
+              const buttonSet = this.unionProductTxnButtons.get(txnGuid)!;
+              if (pt.buttons) {
+                pt.buttons.forEach(b => {
+                  const bGuid = b.buttonGuid.toUpperCase();
+                  buttonSet.add(bGuid);
+                  this.unionAllTxnButtons.add(bGuid);
+                });
+              }
+            });
+          }
+        });
+      }
+
+      // 3. Plan Pages & Transaction Buttons
+      if (company.plans) {
+        company.plans.forEach(plan => {
+          if (plan.planPages) {
+            plan.planPages.forEach(pp => {
+              const pageGuid = pp.pageGuid.toUpperCase();
+              if (!this.unionPlanPages.has(pageGuid)) {
+                this.unionPlanPages.set(pageGuid, new Set<string>());
+              }
+              const buttonSet = this.unionPlanPages.get(pageGuid)!;
+              if (pp.buttons) {
+                pp.buttons.forEach(b => {
+                  const bGuid = b.buttonGuid.toUpperCase();
+                  buttonSet.add(bGuid);
+                  this.unionAllPageButtons.add(bGuid);
+                });
+              }
+            });
+          }
+
+          if (plan.planTransactions) {
+            plan.planTransactions.forEach(pt => {
+              const txnGuid = pt.transactionGuid.toUpperCase();
+              if (!this.unionPlanTxnButtons.has(txnGuid)) {
+                this.unionPlanTxnButtons.set(txnGuid, new Set<string>());
+              }
+              const buttonSet = this.unionPlanTxnButtons.get(txnGuid)!;
+              if (pt.buttons) {
+                pt.buttons.forEach(b => {
+                  const bGuid = b.buttonGuid.toUpperCase();
+                  buttonSet.add(bGuid);
+                  this.unionAllTxnButtons.add(bGuid);
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+
   constructor(
     private router: Router,
     private lookupService: LookupService,
@@ -216,11 +340,12 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       )
     }).subscribe({
       next: (data) => {
-        this.allCompanies = data.companies;
-        this.allPages = data.pages;
-        this.allButtons = data.buttons;
-        this.allWebServices = data.webServices;
+        this.allCompanies = data.companies.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
+        this.allPages = data.pages.sort((a, b) => (a.pageName || '').localeCompare(b.pageName || ''));
+        this.allButtons = data.buttons.sort((a, b) => (a.buttonName || '').localeCompare(b.buttonName || ''));
+        this.allWebServices = data.webServices.sort((a, b) => (a.webServiceName || '').localeCompare(b.webServiceName || ''));
         this.baseConfig = data.baseConfig;
+        this.computeBaseConfigUnions();
 
         // Try to restore persisted state first
         const persisted = this.stateService.loadConfigState();
@@ -229,11 +354,6 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         } else {
           // Initialize company configs from scratch
           let companiesToUse = this.allCompanies;
-          if (this.baseConfig && this.baseConfig.securityGroup && this.baseConfig.securityGroup.companies) {
-            companiesToUse = this.allCompanies.filter(c =>
-              this.baseConfig!.securityGroup.companies.some(bc => guidEq(bc.companyGuid, c.companyGuid))
-            );
-          }
           this.companyConfigs = companiesToUse.map(c => ({
             company: c,
             selected: false,
@@ -281,11 +401,6 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     // Rebuild companyConfigs by merging master data with persisted selections
     let companiesToUse = this.allCompanies;
-    if (this.baseConfig && this.baseConfig.securityGroup && this.baseConfig.securityGroup.companies) {
-      companiesToUse = this.allCompanies.filter(c =>
-        this.baseConfig!.securityGroup.companies.some(bc => guidEq(bc.companyGuid, c.companyGuid))
-      );
-    }
 
     this.companyConfigs = companiesToUse.map(company => {
       const saved = persisted.companyConfigs.find(
@@ -306,13 +421,20 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           availablePlans: []
         };
 
+        if (config.loaded && config.companyInquiries && config.companyInquiries.length > 0) {
+          const hasTypes = config.companyInquiries.some(i => i.typeCode || i.typeName);
+          if (!hasTypes) {
+            config.loaded = false;
+          }
+        }
+
         // Re-fetch available products & plans from the API for loaded companies
         if (config.selected || config.loaded) {
           this.lookupService.getProductsByCompany(company.companyGuid)
-            .subscribe(products => config.availableProducts = products);
+            .subscribe(products => config.availableProducts = products.sort((a, b) => (a.productName || '').localeCompare(b.productName || '')));
 
           this.lookupService.getPlansByCompany(company.companyGuid)
-            .subscribe(plans => config.availablePlans = plans);
+            .subscribe(plans => config.availablePlans = plans.sort((a, b) => (a.planName || '').localeCompare(b.planName || '')));
         }
 
         return config;
@@ -452,21 +574,25 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   private initCompanyConfig(config: CompanyConfig, onComplete?: () => void): void {
     const companyGuid = config.company.companyGuid;
-
-    // Get the base company config
-    const baseCompany = this.baseConfig?.securityGroup?.companies?.find(c => guidEq(c.companyGuid, companyGuid));
+    const hasBase = !!this.baseConfig;
 
     // Init pages with buttons
     let pagesToMap = this.allPages;
-    if (baseCompany && baseCompany.companyPages) {
-      pagesToMap = this.allPages.filter(p => baseCompany.companyPages.some(bp => guidEq(bp.pageGuid, p.pageGuid)));
+    if (hasBase) {
+      pagesToMap = this.allPages.filter(p => this.unionCompanyPages.has(p.pageGuid.toUpperCase()));
     }
 
     config.companyPages = pagesToMap.map(p => {
-      const basePage = baseCompany?.companyPages?.find(bp => guidEq(bp.pageGuid, p.pageGuid));
+      const pageGuidUpper = p.pageGuid.toUpperCase();
       let buttonsToMap = this.allButtons;
-      if (basePage && basePage.buttons) {
-        buttonsToMap = this.allButtons.filter(b => basePage.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+      if (hasBase) {
+        // Use per-page button set from IT Admin: only show buttons IT Admin grants for this specific page
+        const allowedForPage = this.unionCompanyPages.get(pageGuidUpper);
+        if (allowedForPage) {
+          buttonsToMap = this.allButtons.filter(b => allowedForPage.has(b.buttonGuid.toUpperCase()));
+        } else {
+          buttonsToMap = [];
+        }
       }
       return {
         pageGuid: p.pageGuid,
@@ -482,9 +608,6 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     // Init web services
     let wsToMap = this.allWebServices;
-    if (baseCompany && baseCompany.companyWebServices) {
-      wsToMap = this.allWebServices.filter(ws => baseCompany.companyWebServices.some(bws => guidEq(bws.webServiceGuid, ws.webServiceGuid)));
-    }
 
     config.companyWebServices = wsToMap.map(ws => ({
       webServiceGuid: ws.webServiceGuid,
@@ -499,28 +622,18 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       plans: this.lookupService.getPlansByCompany(companyGuid)
     }).subscribe({
       next: (res) => {
-        let screensToMap = res.screens;
-        if (baseCompany && baseCompany.companyInquiries) {
-          screensToMap = res.screens.filter(s => baseCompany.companyInquiries.some(bi => guidEq(bi.inquiryScreenNameGuid, s.inquiryScreenGuid)));
-        }
+        let screensToMap = res.screens.sort((a, b) => (a.screenName || '').localeCompare(b.screenName || ''));
 
         config.companyInquiries = screensToMap.map(s => ({
           inquiryScreenNameGuid: s.inquiryScreenGuid,
           name: s.screenName,
-          selected: false
+          selected: false,
+          typeCode: s.typeCode,
+          typeName: s.typeName
         }));
 
-        let productsToMap = res.products;
-        if (baseCompany && baseCompany.products) {
-          productsToMap = res.products.filter(p => baseCompany.products.some(bp => guidEq(bp.productGuid, p.productGuid)));
-        }
-        config.availableProducts = productsToMap;
-
-        let plansToMap = res.plans;
-        if (baseCompany && baseCompany.plans) {
-          plansToMap = res.plans.filter(p => baseCompany.plans.some(bp => guidEq(bp.planGuid, p.planGuid)));
-        }
-        config.availablePlans = plansToMap;
+        config.availableProducts = res.products.sort((a, b) => (a.productName || '').localeCompare(b.productName || ''));
+        config.availablePlans = res.plans.sort((a, b) => (a.planName || '').localeCompare(b.planName || ''));
 
         // Apply existing config if in modify mode
         if (this.existingPayload) {
@@ -604,21 +717,29 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     this.isSubLoading = true;
 
-    this.lookupService.getTransactions(undefined, product.productGuid).subscribe({
-      next: (txns) => {
-        const baseCompany = this.baseConfig?.securityGroup?.companies?.find(c => guidEq(c.companyGuid, config.company.companyGuid));
-        const baseProduct = baseCompany?.products?.find(p => guidEq(p.productGuid, product.productGuid));
+    forkJoin({
+      txns: this.lookupService.getTransactions(undefined, product.productGuid),
+      inqs: this.lookupService.getInquiryScreens(undefined, undefined, product.productGuid)
+    }).subscribe({
+      next: (res) => {
+        const hasBase = !!this.baseConfig;
 
         let pagesToMap = this.allPages;
-        if (baseProduct && baseProduct.productPages) {
-          pagesToMap = this.allPages.filter(p => baseProduct.productPages.some(bp => guidEq(bp.pageGuid, p.pageGuid)));
+        if (hasBase) {
+          pagesToMap = this.allPages.filter(p => this.unionProductPages.has(p.pageGuid.toUpperCase()));
         }
 
         const productPages = pagesToMap.map(p => {
-          const basePage = baseProduct?.productPages?.find(bp => guidEq(bp.pageGuid, p.pageGuid));
+          const pageGuidUpper = p.pageGuid.toUpperCase();
           let buttonsToMap = this.allButtons;
-          if (basePage && basePage.buttons) {
-            buttonsToMap = this.allButtons.filter(b => basePage.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+          if (hasBase) {
+            // Use per-page button set from IT Admin: only show buttons IT Admin grants for this specific page
+            const allowedForPage = this.unionProductPages.get(pageGuidUpper) || this.unionCompanyPages.get(pageGuidUpper);
+            if (allowedForPage) {
+              buttonsToMap = this.allButtons.filter(b => allowedForPage.has(b.buttonGuid.toUpperCase()));
+            } else {
+              buttonsToMap = [];
+            }
           }
           return {
             pageGuid: p.pageGuid,
@@ -632,16 +753,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           };
         });
 
-        let txnsToMap = txns;
-        if (baseProduct && baseProduct.productTransactions) {
-          txnsToMap = txns.filter(t => baseProduct.productTransactions.some(bt => guidEq(bt.transactionGuid, t.transactionGuid)));
-        }
+        let txnsToMap = res.txns.sort((a, b) => (a.transactionName || '').localeCompare(b.transactionName || ''));
 
         const productTransactions = txnsToMap.map(t => {
-          const baseTxn = baseProduct?.productTransactions?.find(bt => guidEq(bt.transactionGuid, t.transactionGuid));
+          const txnGuidUpper = t.transactionGuid.toUpperCase();
           let buttonsToMap = this.allButtons;
-          if (baseTxn && baseTxn.buttons) {
-            buttonsToMap = this.allButtons.filter(b => baseTxn.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+          if (hasBase) {
+            buttonsToMap = this.allButtons.filter(b => this.unionAllTxnButtons.has(b.buttonGuid.toUpperCase()));
           }
           return {
             transactionGuid: t.transactionGuid,
@@ -655,12 +773,23 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           };
         });
 
+        let productInqsToMap = res.inqs.sort((a, b) => (a.screenName || '').localeCompare(b.screenName || ''));
+        const productInquiries = productInqsToMap.map(inq => ({
+          inquiryScreenNameGuid: inq.inquiryScreenGuid,
+          name: inq.screenName,
+          selected: false,
+          typeCode: inq.typeCode,
+          typeName: inq.typeName
+        }));
+
         const newProduct: ProductConfig = {
           productGuid: product.productGuid,
           name: product.productName,
           selected: true,
           productPages,
-          productTransactions
+          productTransactions,
+          productInquiries,
+          inquiryFilter: ''
         };
 
         // Apply existing config if modify mode
@@ -680,17 +809,22 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         productPlansMeta.forEach(planMeta => {
           let planConfig = config.plans.find(p => guidEq(p.planGuid, planMeta.planGuid));
           if (!planConfig) {
-            const basePlan = baseCompany?.plans?.find(bp => guidEq(bp.planGuid, planMeta.planGuid));
             let planPagesToMap = this.allPages;
-            if (basePlan && basePlan.planPages) {
-              planPagesToMap = this.allPages.filter(p => basePlan.planPages.some(bp => guidEq(bp.pageGuid, p.pageGuid)));
+            if (hasBase) {
+              planPagesToMap = this.allPages.filter(p => this.unionPlanPages.has(p.pageGuid.toUpperCase()));
             }
 
             const planPages = planPagesToMap.map(p => {
-              const basePage = basePlan?.planPages?.find(bp => guidEq(bp.pageGuid, p.pageGuid));
+              const pageGuidUpper = p.pageGuid.toUpperCase();
               let buttonsToMap = this.allButtons;
-              if (basePage && basePage.buttons) {
-                buttonsToMap = this.allButtons.filter(b => basePage.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+              if (hasBase) {
+                // Use per-page button set from IT Admin: only show buttons IT Admin grants for this specific page
+                const allowedForPage = this.unionPlanPages.get(pageGuidUpper) || this.unionCompanyPages.get(pageGuidUpper);
+                if (allowedForPage) {
+                  buttonsToMap = this.allButtons.filter(b => allowedForPage.has(b.buttonGuid.toUpperCase()));
+                } else {
+                  buttonsToMap = [];
+                }
               }
               return {
                 pageGuid: p.pageGuid,
@@ -722,15 +856,12 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
             }).subscribe({
               next: (res) => {
                 let planTxnsToMap = res.pTxns;
-                if (basePlan && basePlan.planTransactions) {
-                  planTxnsToMap = res.pTxns.filter(t => basePlan.planTransactions.some(bt => guidEq(bt.transactionGuid, t.transactionGuid)));
-                }
 
                 planConfig!.planTransactions = planTxnsToMap.map(pt => {
-                  const baseTxn = basePlan?.planTransactions?.find(bt => guidEq(bt.transactionGuid, pt.transactionGuid));
+                  const txnGuidUpper = pt.transactionGuid.toUpperCase();
                   let buttonsToMap = this.allButtons;
-                  if (baseTxn && baseTxn.buttons) {
-                    buttonsToMap = this.allButtons.filter(b => baseTxn.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+                  if (hasBase) {
+                    buttonsToMap = this.allButtons.filter(b => this.unionAllTxnButtons.has(b.buttonGuid.toUpperCase()));
                   }
                   return {
                     transactionGuid: pt.transactionGuid,
@@ -745,14 +876,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
                 });
 
                 let planInqsToMap = res.inqs;
-                if (basePlan && basePlan.planInquiries) {
-                  planInqsToMap = res.inqs.filter(inq => basePlan.planInquiries.some(bi => guidEq(bi.inquiryScreenNameGuid, inq.inquiryScreenGuid)));
-                }
 
                 planConfig!.planInquiries = planInqsToMap.map(inq => ({
                   inquiryScreenNameGuid: inq.inquiryScreenGuid,
                   name: inq.screenName,
-                  selected: false
+                  selected: false,
+                  typeCode: inq.typeCode,
+                  typeName: inq.typeName
                 }));
 
                 // Apply existing plan config again in case transactions/inquiries arrived late
@@ -768,12 +898,12 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
             });
           }
 
-          // Initialize/override productPlanTransactions with the product's transactions
-          planConfig.productPlanTransactions = newProduct.productTransactions.map(pt => ({
-            transactionGuid: pt.transactionGuid,
-            name: pt.name,
+          // Clone product transactions for the plan so they can be configured independently
+          planConfig.productPlanTransactions = newProduct.productTransactions.map(t => ({
+            transactionGuid: t.transactionGuid,
+            name: t.name,
             selected: false,
-            buttons: pt.buttons.map(b => ({
+            buttons: t.buttons.map(b => ({
               buttonGuid: b.buttonGuid,
               name: b.name,
               selected: false
@@ -830,6 +960,21 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         txn.configured = true;
       }
     });
+
+    existing.productInquiries?.forEach(ei => {
+      const inq = productConfig.productInquiries.find(i => guidEq(i.inquiryScreenNameGuid, ei.inquiryScreenNameGuid));
+      if (inq) {
+        inq.selected = true;
+        inq.configured = true;
+      } else {
+        productConfig.productInquiries.push({
+          inquiryScreenNameGuid: ei.inquiryScreenNameGuid,
+          name: ei.name || 'Unknown Screen',
+          selected: true,
+          configured: true
+        });
+      }
+    });
   }
 
   removeProduct(config: CompanyConfig, productGuid: string): void {
@@ -874,19 +1019,24 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     forkJoin(fetches).subscribe({
       next: (res: any) => {
-        const baseCompany = this.baseConfig?.securityGroup?.companies?.find(c => guidEq(c.companyGuid, config.company.companyGuid));
-        const basePlan = baseCompany?.plans?.find(p => guidEq(p.planGuid, plan.planGuid));
+        const hasBase = !!this.baseConfig;
 
         let pagesToMap = this.allPages;
-        if (basePlan && basePlan.planPages) {
-          pagesToMap = this.allPages.filter(p => basePlan.planPages.some(bp => guidEq(bp.pageGuid, p.pageGuid)));
+        if (hasBase) {
+          pagesToMap = this.allPages.filter(p => this.unionPlanPages.has(p.pageGuid.toUpperCase()));
         }
 
         const planPages = pagesToMap.map(p => {
-          const basePage = basePlan?.planPages?.find(bp => guidEq(bp.pageGuid, p.pageGuid));
+          const pageGuidUpper = p.pageGuid.toUpperCase();
           let buttonsToMap = this.allButtons;
-          if (basePage && basePage.buttons) {
-            buttonsToMap = this.allButtons.filter(b => basePage.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+          if (hasBase) {
+            // Use per-page button set from IT Admin: only show buttons IT Admin grants for this specific page
+            const allowedForPage = this.unionPlanPages.get(pageGuidUpper) || this.unionCompanyPages.get(pageGuidUpper);
+            if (allowedForPage) {
+              buttonsToMap = this.allButtons.filter(b => allowedForPage.has(b.buttonGuid.toUpperCase()));
+            } else {
+              buttonsToMap = [];
+            }
           }
           return {
             pageGuid: p.pageGuid,
@@ -900,16 +1050,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           };
         });
 
-        let txnsToMap = res.txns;
-        if (basePlan && basePlan.planTransactions) {
-          txnsToMap = res.txns.filter((t: any) => basePlan.planTransactions.some(bt => guidEq(bt.transactionGuid, t.transactionGuid)));
-        }
+        let txnsToMap = res.txns.sort((a: any, b: any) => (a.transactionName || '').localeCompare(b.transactionName || ''));
 
         const planTransactions = txnsToMap.map((t: any) => {
-          const baseTxn = basePlan?.planTransactions?.find(bt => guidEq(bt.transactionGuid, t.transactionGuid));
+          const txnGuidUpper = t.transactionGuid.toUpperCase();
           let buttonsToMap = this.allButtons;
-          if (baseTxn && baseTxn.buttons) {
-            buttonsToMap = this.allButtons.filter(b => baseTxn.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+          if (hasBase) {
+            buttonsToMap = this.allButtons.filter(b => this.unionAllTxnButtons.has(b.buttonGuid.toUpperCase()));
           }
           return {
             transactionGuid: t.transactionGuid,
@@ -923,17 +1070,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           };
         });
 
-        let prodTxnsToMap = res.prodTxns || [];
-        const baseProduct = baseCompany?.products?.find(p => guidEq(p.productGuid, plan.productGuid));
-        if (baseProduct && baseProduct.productTransactions) {
-          prodTxnsToMap = prodTxnsToMap.filter((pt: any) => baseProduct.productTransactions.some(bpt => guidEq(bpt.transactionGuid, pt.transactionGuid)));
-        }
+        let prodTxnsToMap = (res.prodTxns || []).sort((a: any, b: any) => (a.transactionName || '').localeCompare(b.transactionName || ''));
 
         const productPlanTransactions = prodTxnsToMap.map((pt: any) => {
-          const baseTxn = baseProduct?.productTransactions?.find(bpt => guidEq(bpt.transactionGuid, pt.transactionGuid));
+          const txnGuidUpper = pt.transactionGuid.toUpperCase();
           let buttonsToMap = this.allButtons;
-          if (baseTxn && baseTxn.buttons) {
-            buttonsToMap = this.allButtons.filter(b => baseTxn.buttons.some(bb => guidEq(bb.buttonGuid, b.buttonGuid)));
+          if (hasBase) {
+            buttonsToMap = this.allButtons.filter(b => this.unionAllTxnButtons.has(b.buttonGuid.toUpperCase()));
           }
           return {
             transactionGuid: pt.transactionGuid,
@@ -947,15 +1090,14 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           };
         });
 
-        let inqsToMap = res.inqs;
-        if (basePlan && basePlan.planInquiries) {
-          inqsToMap = res.inqs.filter((inq: any) => basePlan.planInquiries.some(bi => guidEq(bi.inquiryScreenNameGuid, inq.inquiryScreenGuid)));
-        }
+        let inqsToMap = res.inqs.sort((a: any, b: any) => (a.screenName || '').localeCompare(b.screenName || ''));
 
         const planInquiries = inqsToMap.map((inq: any) => ({
           inquiryScreenNameGuid: inq.inquiryScreenGuid,
           name: inq.screenName,
-          selected: false
+          selected: false,
+          typeCode: inq.typeCode,
+          typeName: inq.typeName
         }));
 
         const newPlan: PlanConfig = {
@@ -965,7 +1107,8 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           planPages,
           planTransactions,
           productPlanTransactions,
-          planInquiries
+          planInquiries,
+          inquiryFilter: ''
         };
 
         // Apply existing config if modify mode
@@ -1129,75 +1272,240 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     return selected > 0 && selected < txn.buttons.length;
   }
 
+  // Helper to extract any items from existing DTO list that were not loaded/present in the UI list
+  getPreservedItems<T, U>(
+    existingItems: T[] | undefined,
+    uiItems: U[] | undefined,
+    matchFn: (existing: T, ui: U) => boolean,
+    mapFn: (existing: T) => any
+  ): any[] {
+    if (!existingItems) return [];
+    const preserved: any[] = [];
+    existingItems.forEach(existingItem => {
+      const found = uiItems?.some(uiItem => matchFn(existingItem, uiItem));
+      if (!found) {
+        preserved.push(mapFn(existingItem));
+      }
+    });
+    return preserved;
+  }
+
   // ── Build Payload & Save ──
   buildPayload(): SecurityGroupRequestDto {
     const companies: CompanyDto[] = this.selectedCompanies.map(config => {
-      // Include pages that are selected OR have at least one button selected
+      const existingCompany = this.existingPayload?.securityGroup.companies.find(c => guidEq(c.companyGuid, config.company.companyGuid));
+
+      // 1. Company Pages
       const companyPages = config.companyPages
         .filter(p => p.selected || p.buttons.some(b => b.selected))
         .map(p => ({
           pageGuid: p.pageGuid,
           buttons: p.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
         }));
+      const preservedCompanyPages = this.getPreservedItems(
+        existingCompany?.companyPages,
+        config.companyPages,
+        (e, u) => guidEq(e.pageGuid, u.pageGuid),
+        e => ({
+          pageGuid: e.pageGuid,
+          buttons: (e.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+        })
+      );
+      const finalCompanyPages = [...companyPages, ...preservedCompanyPages];
 
+      // 2. Company Inquiries
       const companyInquiries = config.companyInquiries
         .filter(i => i.selected)
         .map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }));
+      const preservedCompanyInquiries = this.getPreservedItems(
+        existingCompany?.companyInquiries,
+        config.companyInquiries,
+        (e, u) => guidEq(e.inquiryScreenNameGuid, u.inquiryScreenNameGuid),
+        e => ({ inquiryScreenNameGuid: e.inquiryScreenNameGuid })
+      );
+      const finalCompanyInquiries = [...companyInquiries, ...preservedCompanyInquiries];
 
+      // 3. Company Web Services
       const companyWebServices = config.companyWebServices
         .filter(w => w.selected)
         .map(w => ({ webServiceGuid: w.webServiceGuid }));
+      const preservedCompanyWebServices = this.getPreservedItems(
+        existingCompany?.companyWebServices,
+        config.companyWebServices,
+        (e, u) => guidEq(e.webServiceGuid, u.webServiceGuid),
+        e => ({ webServiceGuid: e.webServiceGuid })
+      );
+      const finalCompanyWebServices = [...companyWebServices, ...preservedCompanyWebServices];
 
+      // 4. Products
       const products = config.products
         .filter(prod => prod.selected)
-        .map(prod => ({
-          productGuid: prod.productGuid,
-          productPages: prod.productPages
+        .map(prod => {
+          const existingProduct = existingCompany?.products?.find(p => guidEq(p.productGuid, prod.productGuid));
+
+          // 4a. Product Pages
+          const productPages = prod.productPages
             .filter(p => p.selected || p.buttons.some(b => b.selected))
             .map(p => ({
               pageGuid: p.pageGuid,
               buttons: p.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
-            })),
-          productTransactions: prod.productTransactions
+            }));
+          const preservedProductPages = this.getPreservedItems(
+            existingProduct?.productPages,
+            prod.productPages,
+            (e, u) => guidEq(e.pageGuid, u.pageGuid),
+            e => ({
+              pageGuid: e.pageGuid,
+              buttons: (e.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+            })
+          );
+
+          // 4b. Product Transactions
+          const productTransactions = prod.productTransactions
             .filter(t => t.selected || t.buttons.some(b => b.selected))
             .map(t => ({
               transactionGuid: t.transactionGuid,
               buttons: t.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
-            }))
-        }));
+            }));
+          const preservedProductTransactions = this.getPreservedItems(
+            existingProduct?.productTransactions,
+            prod.productTransactions,
+            (e, u) => guidEq(e.transactionGuid, u.transactionGuid),
+            e => ({
+              transactionGuid: e.transactionGuid,
+              buttons: (e.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+            })
+          );
 
+          // 4c. Product Inquiries
+          const productInquiries = prod.productInquiries
+            .filter(i => i.selected)
+            .map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }));
+          const preservedProductInquiries = this.getPreservedItems(
+            existingProduct?.productInquiries,
+            prod.productInquiries,
+            (e, u) => guidEq(e.inquiryScreenNameGuid, u.inquiryScreenNameGuid),
+            e => ({ inquiryScreenNameGuid: e.inquiryScreenNameGuid })
+          );
+
+          return {
+            productGuid: prod.productGuid,
+            productPages: [...productPages, ...preservedProductPages],
+            productTransactions: [...productTransactions, ...preservedProductTransactions],
+            productInquiries: [...productInquiries, ...preservedProductInquiries]
+          };
+        });
+
+      const preservedProducts = this.getPreservedItems(
+        existingCompany?.products,
+        config.products,
+        (e, u) => guidEq(e.productGuid, u.productGuid),
+        e => ({
+          productGuid: e.productGuid,
+          productPages: (e.productPages || []).map(p => ({
+            pageGuid: p.pageGuid,
+            buttons: (p.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+          })),
+          productTransactions: (e.productTransactions || []).map(t => ({
+            transactionGuid: t.transactionGuid,
+            buttons: (t.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+          })),
+          productInquiries: (e.productInquiries || []).map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }))
+        })
+      );
+      const finalProducts = [...products, ...preservedProducts];
+
+      // 5. Plans
       const plans = config.plans
         .filter(plan => plan.selected)
-        .map(plan => ({
-          planGuid: plan.planGuid,
-          planPages: plan.planPages
+        .map(plan => {
+          const existingPlan = existingCompany?.plans?.find(p => guidEq(p.planGuid, plan.planGuid));
+
+          // 5a. Plan Pages
+          const planPages = plan.planPages
             .filter(p => p.selected || p.buttons.some(b => b.selected))
             .map(p => ({
               pageGuid: p.pageGuid,
               buttons: p.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
-            })),
-          // Merge both independent and product-derived plan transactions
-          planTransactions: [
+            }));
+          const preservedPlanPages = this.getPreservedItems(
+            existingPlan?.planPages,
+            plan.planPages,
+            (e, u) => guidEq(e.pageGuid, u.pageGuid),
+            e => ({
+              pageGuid: e.pageGuid,
+              buttons: (e.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+            })
+          );
+
+          // 5b. Plan Transactions (merge plan-level and product-derived transactions)
+          const planTransactions = [
+            ...plan.planTransactions.filter(t => t.selected || t.buttons.some(b => b.selected)),
+            ...(plan.productPlanTransactions || []).filter(t => t.selected || t.buttons.some(b => b.selected))
+          ].map(t => ({
+            transactionGuid: t.transactionGuid,
+            buttons: t.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
+          }));
+
+          const loadedUiTxns = [
             ...plan.planTransactions,
             ...(plan.productPlanTransactions || [])
-          ]
-            .filter(t => t.selected || t.buttons.some(b => b.selected))
-            .map(t => ({
-              transactionGuid: t.transactionGuid,
-              buttons: t.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
-            })),
-          planInquiries: plan.planInquiries
+          ];
+          const preservedPlanTransactions = this.getPreservedItems(
+            existingPlan?.planTransactions,
+            loadedUiTxns,
+            (e, u) => guidEq(e.transactionGuid, u.transactionGuid),
+            e => ({
+              transactionGuid: e.transactionGuid,
+              buttons: (e.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+            })
+          );
+
+          // 5c. Plan Inquiries
+          const planInquiries = plan.planInquiries
             .filter(i => i.selected)
-            .map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }))
-        }));
+            .map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }));
+          const preservedPlanInquiries = this.getPreservedItems(
+            existingPlan?.planInquiries,
+            plan.planInquiries,
+            (e, u) => guidEq(e.inquiryScreenNameGuid, u.inquiryScreenNameGuid),
+            e => ({ inquiryScreenNameGuid: e.inquiryScreenNameGuid })
+          );
+
+          return {
+            planGuid: plan.planGuid,
+            planPages: [...planPages, ...preservedPlanPages],
+            planTransactions: [...planTransactions, ...preservedPlanTransactions],
+            planInquiries: [...planInquiries, ...preservedPlanInquiries]
+          };
+        });
+
+      const preservedPlans = this.getPreservedItems(
+        existingCompany?.plans,
+        config.plans,
+        (e, u) => guidEq(e.planGuid, u.planGuid),
+        e => ({
+          planGuid: e.planGuid,
+          planPages: (e.planPages || []).map(p => ({
+            pageGuid: p.pageGuid,
+            buttons: (p.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+          })),
+          planTransactions: (e.planTransactions || []).map(t => ({
+            transactionGuid: t.transactionGuid,
+            buttons: (t.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+          })),
+          planInquiries: (e.planInquiries || []).map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }))
+        })
+      );
+      const finalPlans = [...plans, ...preservedPlans];
 
       return {
         companyGuid: config.company.companyGuid,
-        companyPages,
-        companyInquiries,
-        companyWebServices,
-        products,
-        plans
+        companyPages: finalCompanyPages,
+        companyInquiries: finalCompanyInquiries,
+        companyWebServices: finalCompanyWebServices,
+        products: finalProducts,
+        plans: finalPlans
       };
     });
 
@@ -1228,7 +1536,18 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getInquiryName(companyGuid: string, screenGuid: string): string {
     const config = this.companyConfigs.find(c => guidEq(c.company.companyGuid, companyGuid));
-    return config?.companyInquiries.find(i => guidEq(i.inquiryScreenNameGuid, screenGuid))?.name || 'Unknown Inquiry';
+    if (!config) return 'Unknown Inquiry';
+    let found = config.companyInquiries.find(i => guidEq(i.inquiryScreenNameGuid, screenGuid));
+    if (found) return found.name || 'Unknown Inquiry';
+    for (const prod of config.products) {
+      found = prod.productInquiries?.find(i => guidEq(i.inquiryScreenNameGuid, screenGuid));
+      if (found) return found.name || 'Unknown Inquiry';
+    }
+    for (const plan of config.plans) {
+      found = plan.planInquiries?.find(i => guidEq(i.inquiryScreenNameGuid, screenGuid));
+      if (found) return found.name || 'Unknown Inquiry';
+    }
+    return 'Unknown Inquiry';
   }
 
   getProductName(companyGuid: string, productGuid: string): string {
@@ -1719,6 +2038,18 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     if (txnNodes.length > 0) {
       nodes.push({ name: 'Product Transactions', icon: 'sync', children: txnNodes });
     }
+
+    const inquiryNodes: HierarchicalDiffNode[] = [];
+    prod.productInquiries?.forEach(i => {
+      inquiryNodes.push({
+        name: this.getInquiryName(companyGuid, i.inquiryScreenNameGuid),
+        type: 'add',
+        icon: 'search'
+      });
+    });
+    if (inquiryNodes.length > 0) {
+      nodes.push({ name: 'Product Inquiry Screens', icon: 'web', children: inquiryNodes });
+    }
   }
 
   private addPlanDiffNodes(nodes: HierarchicalDiffNode[], plan: PlanDto, planName: string, companyGuid: string): void {
@@ -1922,6 +2253,33 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     if (txnNodes.length > 0) {
       nodes.push({ name: 'Product Transactions', icon: 'sync', children: txnNodes });
+    }
+
+    const inquiryNodes: HierarchicalDiffNode[] = [];
+    const currInqs = curr.productInquiries || [];
+    const existInqs = exist.productInquiries || [];
+
+    currInqs.forEach(ci => {
+      if (!existInqs.some(ei => guidEq(ei.inquiryScreenNameGuid, ci.inquiryScreenNameGuid))) {
+        inquiryNodes.push({
+          name: this.getInquiryName(companyGuid, ci.inquiryScreenNameGuid),
+          type: 'add',
+          icon: 'search'
+        });
+      }
+    });
+    existInqs.forEach(ei => {
+      if (!currInqs.some(ci => guidEq(ci.inquiryScreenNameGuid, ei.inquiryScreenNameGuid))) {
+        inquiryNodes.push({
+          name: this.getInquiryName(companyGuid, ei.inquiryScreenNameGuid),
+          type: 'remove',
+          icon: 'search'
+        });
+      }
+    });
+
+    if (inquiryNodes.length > 0) {
+      nodes.push({ name: 'Product Inquiry Screens', icon: 'web', children: inquiryNodes });
     }
   }
 
@@ -2258,12 +2616,12 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getConfiguredPages(pages: CompanyPageDto[] | undefined): CompanyPageDto[] {
     if (!pages) return [];
-    return pages.filter(p => p.configured);
+    return pages.filter(p => p.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   getConfiguredButtons(buttons: ButtonDto[] | undefined): ButtonDto[] {
     if (!buttons) return [];
-    return buttons.filter(b => b.configured);
+    return buttons.filter(b => b.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   hasConfiguredInquiries(inquiries: any[] | undefined): boolean {
@@ -2272,7 +2630,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getConfiguredInquiries(inquiries: any[] | undefined): any[] {
     if (!inquiries) return [];
-    return inquiries.filter(i => i.configured);
+    return inquiries.filter(i => i.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   hasConfiguredWebServices(webServices: any[] | undefined): boolean {
@@ -2281,7 +2639,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getConfiguredWebServices(webServices: any[] | undefined): any[] {
     if (!webServices) return [];
-    return webServices.filter(w => w.configured);
+    return webServices.filter(w => w.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   hasConfiguredProducts(products: ProductConfig[] | undefined): boolean {
@@ -2290,7 +2648,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getConfiguredProducts(products: ProductConfig[] | undefined): ProductConfig[] {
     if (!products) return [];
-    return products.filter(p => p.configured);
+    return products.filter(p => p.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   hasConfiguredTransactions(txns: any[] | undefined): boolean {
@@ -2299,7 +2657,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getConfiguredTransactions(txns: any[] | undefined): any[] {
     if (!txns) return [];
-    return txns.filter(t => t.configured);
+    return txns.filter(t => t.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   getMergedConfiguredTransactions(plan: PlanConfig): any[] {
@@ -2313,7 +2671,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getConfiguredPlans(plans: PlanConfig[] | undefined): PlanConfig[] {
     if (!plans) return [];
-    return plans.filter(p => p.configured);
+    return plans.filter(p => p.configured).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   hasAnyConfiguredPermissions(): boolean {
@@ -2647,6 +3005,9 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     if (s.entityType === 'PRODUCT_TRANSACTION_BUTTON') {
       const txnGuid = this.findProductTxnGuidForButton(s.companyGuid, s.productGuid, s.entityGuid, s.script);
       return txnGuid ? `company_${s.companyGuid}_product_${s.productGuid}_txn_${txnGuid}_button_${s.entityGuid}` : null;
+    }
+    if (s.entityType === 'PRODUCT_INQUIRY') {
+      return `company_${s.companyGuid}_product_${s.productGuid}_inquiry_${s.entityGuid}`;
     }
     if (s.entityType === 'PLAN') {
       return `company_${s.companyGuid}_plan_${s.planGuid}`;
@@ -3157,6 +3518,35 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           productNode.children!.push(txnsFolder);
         }
 
+        // Product Inquiries
+        const prodInqScripts = migrationScripts.filter(s => 
+          guidEq(s.companyGuid, companyGuid) && guidEq(s.productGuid, productGuid) && !s.planGuid && s.entityType === 'PRODUCT_INQUIRY'
+        );
+        if (prodInqScripts.length > 0) {
+          const inqsFolder: DialogFilterNode = {
+            id: `company_${companyGuid}_product_${productGuid}_inqs_folder`,
+            name: 'Inquiries',
+            type: 'product_inquiries' as any,
+            checked: true,
+            expanded: false,
+            companyGuid: companyGuid!,
+            productGuid: productGuid!,
+            children: []
+          };
+          prodInqScripts.forEach(s => {
+            inqsFolder.children!.push({
+              id: `company_${companyGuid}_product_${productGuid}_inquiry_${s.entityGuid}`,
+              name: this.getInquiryName(companyGuid, s.entityGuid),
+              type: 'inquiry',
+              checked: true,
+              companyGuid: companyGuid!,
+              productGuid: productGuid!,
+              inquiryGuid: s.entityGuid
+            });
+          });
+          productNode.children!.push(inqsFolder);
+        }
+
         // 3. Plans belonging to this product
         const planGuids = Array.from(new Set(
           migrationScripts
@@ -3279,7 +3669,11 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   // Track by functions for ngFor performance
   trackByGuid(index: number, item: any): string {
-    return item.pageGuid || item.buttonGuid || item.productGuid || item.planGuid || item.transactionGuid || index;
+    return item.pageGuid || item.buttonGuid || item.productGuid || item.planGuid || item.transactionGuid || item.inquiryScreenNameGuid || item.inquiryScreenGuid || index;
+  }
+
+  trackByTypeName(index: number, item: any): string {
+    return item.typeName || index;
   }
 
   trackByCompanyGuid(index: number, item: CompanyConfig): string {
@@ -3319,6 +3713,26 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   get areAllInquiriesSelected(): boolean {
     if (!this.activeConfig || this.activeConfig.companyInquiries.length === 0) return false;
     return this.activeConfig.companyInquiries.every(i => i.selected);
+  }
+
+  selectAllProductInqs(product: ProductConfig, checked: boolean): void {
+    if (!product || !product.productInquiries) return;
+    product.productInquiries.forEach(i => i.selected = checked);
+  }
+
+  areAllProductInquiriesSelected(product: ProductConfig): boolean {
+    if (!product || !product.productInquiries || product.productInquiries.length === 0) return false;
+    return product.productInquiries.every(i => i.selected);
+  }
+
+  selectAllPlanInqs(plan: PlanConfig, checked: boolean): void {
+    if (!plan || !plan.planInquiries) return;
+    plan.planInquiries.forEach(i => i.selected = checked);
+  }
+
+  areAllPlanInquiriesSelected(plan: PlanConfig): boolean {
+    if (!plan || !plan.planInquiries || plan.planInquiries.length === 0) return false;
+    return plan.planInquiries.every(i => i.selected);
   }
 
   selectAllWebServices(checked: boolean): void {
@@ -3527,61 +3941,144 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   get filteredCompanyPages(): CompanyPageDto[] {
     if (!this.activeConfig) return [];
     const filter = this.activeConfig.pageFilter || '';
-    if (!filter) return this.activeConfig.companyPages;
-    const q = filter.toLowerCase();
-    return this.activeConfig.companyPages.filter(p => (p.name || '').toLowerCase().includes(q));
+    let pages = this.activeConfig.companyPages;
+    if (filter) {
+      const q = filter.toLowerCase();
+      pages = pages.filter(p => (p.name || '').toLowerCase().includes(q));
+    }
+    return [...pages].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   get filteredInquiries(): (CompanyInquiryDto & { name?: string })[] {
     if (!this.activeConfig) return [];
     const filter = this.activeConfig.inquiryFilter || '';
-    if (!filter) return this.activeConfig.companyInquiries;
-    const q = filter.toLowerCase();
-    return this.activeConfig.companyInquiries.filter(i => (i.name || '').toLowerCase().includes(q));
+    let inquiries = this.activeConfig.companyInquiries;
+
+
+
+    if (filter) {
+      const q = filter.toLowerCase();
+      inquiries = inquiries.filter(i => (i.name || '').toLowerCase().includes(q));
+    }
+    return [...inquiries].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   get filteredWebServices(): (CompanyWebServiceDto & { name?: string })[] {
     if (!this.activeConfig) return [];
     const filter = this.activeConfig.webServiceFilter || '';
-    if (!filter) return this.activeConfig.companyWebServices;
-    const q = filter.toLowerCase();
-    return this.activeConfig.companyWebServices.filter(w => (w.name || '').toLowerCase().includes(q));
+    let webServices = this.activeConfig.companyWebServices;
+    if (filter) {
+      const q = filter.toLowerCase();
+      webServices = webServices.filter(w => (w.name || '').toLowerCase().includes(q));
+    }
+    return [...webServices].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  get sortedProducts(): ProductConfig[] {
+    if (!this.activeConfig || !this.activeConfig.products) return [];
+    return [...this.activeConfig.products].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  get sortedPlans(): PlanConfig[] {
+    if (!this.activeConfig || !this.activeConfig.plans) return [];
+    return [...this.activeConfig.plans].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   filterProductPages(product: ProductConfig): CompanyPageDto[] {
     const filter = product.pageFilter || '';
-    if (!filter) return product.productPages;
-    const q = filter.toLowerCase();
-    return product.productPages.filter(p => (p.name || '').toLowerCase().includes(q));
+    let pages = product.productPages;
+    if (filter) {
+      const q = filter.toLowerCase();
+      pages = pages.filter(p => (p.name || '').toLowerCase().includes(q));
+    }
+    return [...pages].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   filterProductTxns(product: ProductConfig): (ProductTransactionDto & { name?: string })[] {
     const filter = product.txnFilter || '';
-    if (!filter) return product.productTransactions;
-    const q = filter.toLowerCase();
-    return product.productTransactions.filter(t => (t.name || '').toLowerCase().includes(q));
+    let txns = product.productTransactions;
+    if (filter) {
+      const q = filter.toLowerCase();
+      txns = txns.filter(t => (t.name || '').toLowerCase().includes(q));
+    }
+    return [...txns].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  filterProductInquiries(product: ProductConfig): (CompanyInquiryDto & { name?: string, typeCode?: string, typeName?: string })[] {
+    const filter = product.inquiryFilter || '';
+    let inquiries = product.productInquiries || [];
+    if (filter) {
+      const q = filter.toLowerCase();
+      inquiries = inquiries.filter(i => (i.name || '').toLowerCase().includes(q));
+    }
+    return [...inquiries].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  filterPlanInquiries(plan: PlanConfig): (CompanyInquiryDto & { name?: string, typeCode?: string, typeName?: string })[] {
+    const filter = plan.inquiryFilter || '';
+    let inquiries = plan.planInquiries || [];
+    if (filter) {
+      const q = filter.toLowerCase();
+      inquiries = inquiries.filter(i => (i.name || '').toLowerCase().includes(q));
+    }
+    return [...inquiries].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  getGroupedInquiries(inquiries: any[]): { typeName: string, items: any[] }[] {
+    const groups: { [key: string]: any[] } = {};
+    inquiries.forEach(inq => {
+      const type = inq.typeName || 'Other';
+      if (!groups[type]) {
+        groups[type] = [];
+      }
+      groups[type].push(inq);
+    });
+
+    const order = ['Main Menu', 'Policy Level', 'Client Level'];
+    return Object.keys(groups)
+      .sort((a, b) => {
+        const idxA = order.indexOf(a);
+        const idxB = order.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b);
+      })
+      .map(typeName => ({
+        typeName,
+        items: groups[typeName]
+      }));
   }
 
   filterPlanPages(plan: PlanConfig): CompanyPageDto[] {
     const filter = plan.pageFilter || '';
-    if (!filter) return plan.planPages;
-    const q = filter.toLowerCase();
-    return plan.planPages.filter(p => (p.name || '').toLowerCase().includes(q));
+    let pages = plan.planPages;
+    if (filter) {
+      const q = filter.toLowerCase();
+      pages = pages.filter(p => (p.name || '').toLowerCase().includes(q));
+    }
+    return [...pages].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   filterPlanTxns(plan: PlanConfig): (PlanTransactionDto & { name?: string })[] {
     const filter = plan.txnFilter || '';
-    if (!filter) return plan.planTransactions;
-    const q = filter.toLowerCase();
-    return plan.planTransactions.filter(t => (t.name || '').toLowerCase().includes(q));
+    let txns = plan.planTransactions;
+    if (filter) {
+      const q = filter.toLowerCase();
+      txns = txns.filter(t => (t.name || '').toLowerCase().includes(q));
+    }
+    return [...txns].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   filterProductPlanTxns(plan: PlanConfig): (PlanTransactionDto & { name?: string })[] {
     if (!plan.productPlanTransactions) return [];
     const filter = plan.txnFilter || '';
-    if (!filter) return plan.productPlanTransactions;
-    const q = filter.toLowerCase();
-    return plan.productPlanTransactions.filter(t => (t.name || '').toLowerCase().includes(q));
+    let txns = plan.productPlanTransactions;
+    if (filter) {
+      const q = filter.toLowerCase();
+      txns = txns.filter(t => (t.name || '').toLowerCase().includes(q));
+    }
+    return [...txns].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
 
@@ -3658,18 +4155,20 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getDirectPlans(config: CompanyConfig | null | undefined): PlanConfig[] {
     if (!config || !config.plans || !config.availablePlans) return [];
-    return config.plans.filter(p => {
+    const directPlans = config.plans.filter(p => {
       const planMeta = config.availablePlans.find(meta => guidEq(meta.planGuid, p.planGuid));
       return !planMeta?.productGuid || !config.products.some(prod => guidEq(prod.productGuid, planMeta.productGuid));
     });
+    return [...directPlans].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   getProductPlans(config: CompanyConfig | null | undefined): PlanConfig[] {
     if (!config || !config.plans || !config.availablePlans) return [];
-    return config.plans.filter(p => {
+    const productPlans = config.plans.filter(p => {
       const planMeta = config.availablePlans.find(meta => guidEq(meta.planGuid, p.planGuid));
       return !!planMeta?.productGuid;
     });
+    return [...productPlans].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   // ══════════════════════════════════════════
@@ -3679,14 +4178,17 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   /** Filter buttons inside a page/transaction by a localized filter text. */
   filterButtons(buttons: ButtonDto[], filterText?: string): ButtonDto[] {
     const filter = filterText || '';
-    if (!filter) return buttons;
-    const q = filter.toLowerCase();
-    return buttons.filter(b => (b.name || '').toLowerCase().includes(q));
+    let filtered = buttons;
+    if (filter) {
+      const q = filter.toLowerCase();
+      filtered = buttons.filter(b => (b.name || '').toLowerCase().includes(q));
+    }
+    return [...filtered].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   /** Get all distinct buttons available across the active company's pages and transactions. */
   getAvailableButtons(): ButtonDto[] {
-    if (!this.activeConfig) return this.allButtons;
+    if (!this.activeConfig) return [...this.allButtons].sort((a, b) => (a.buttonName || '').localeCompare(b.buttonName || ''));
     const seen = new Set<string>();
     const result: ButtonDto[] = [];
     const addBtn = (b: ButtonDto) => {
@@ -3710,9 +4212,12 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getFilteredAvailableButtons(query: string): ButtonDto[] {
     const buttons = this.getAvailableButtons();
-    if (!query) return buttons;
-    const q = query.toLowerCase().trim();
-    return buttons.filter(b => (b.name || '').toLowerCase().includes(q));
+    let filtered = buttons;
+    if (query) {
+      const q = query.toLowerCase().trim();
+      filtered = buttons.filter(b => (b.name || '').toLowerCase().includes(q));
+    }
+    return [...filtered].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }
 
   // ── Company Pages: Bulk Button Toggle ──

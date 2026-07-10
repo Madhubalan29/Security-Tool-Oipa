@@ -19,6 +19,8 @@ export interface CompanyInquiryDto {
   selected?: boolean;
   configured?: boolean;
   name?: string;
+  typeCode?: string;
+  typeName?: string;
 }
 
 export interface CompanyWebServiceDto {
@@ -76,6 +78,7 @@ export interface ProductDto {
   productGuid: string;
   productPages: ProductPageDto[];
   productTransactions: ProductTransactionDto[];
+  productInquiries?: CompanyInquiryDto[];
   selected?: boolean;
   configured?: boolean;
   name?: string;

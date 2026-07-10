@@ -5,6 +5,7 @@ import { SecurityGroupService } from '../../services/security-group.service';
 import { SecurityStateService } from '../../services/security-state.service';
 import { SecurityGroupDto } from '../../models/security-group.model';
 import { SqlConfirmDialogComponent } from '../sql-confirm-dialog/sql-confirm-dialog.component';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-modify-group',
@@ -28,7 +29,8 @@ export class ModifyGroupComponent implements OnInit {
     private router: Router,
     private dialog: MatDialog,
     private securityGroupService: SecurityGroupService,
-    private stateService: SecurityStateService
+    private stateService: SecurityStateService,
+    private authService: AuthService
   ) {}
 
   ngOnInit(): void {
@@ -133,5 +135,10 @@ export class ModifyGroupComponent implements OnInit {
     if (!this.selectedGuid) return false;
     const group = this.groups.find(g => g.securityGroupGuid === this.selectedGuid);
     return group?.groupName?.trim().toUpperCase() === 'IT ADMIN';
+  }
+
+  get canModifyItAdmin(): boolean {
+    const username = this.authService.getCurrentUsername().toLowerCase().trim();
+    return username === 'raghul' || username === 'shailendu';
   }
 }

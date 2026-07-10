@@ -24,6 +24,7 @@ export class AuthService {
         if (res.status === 'AUTHORIZED' && res.tokenId) {
           sessionStorage.setItem('sg_loggedIn', 'true');
           sessionStorage.setItem('sg_tokenId', res.tokenId);
+          sessionStorage.setItem('sg_username', username);
         }
       })
     );
@@ -44,8 +45,13 @@ export class AuthService {
     return sessionStorage.getItem('sg_tokenId');
   }
 
+  getCurrentUsername(): string {
+    return sessionStorage.getItem('sg_username') || '';
+  }
+
   logout(): void {
     sessionStorage.removeItem('sg_loggedIn');
     sessionStorage.removeItem('sg_tokenId');
+    sessionStorage.removeItem('sg_username');
   }
 }
