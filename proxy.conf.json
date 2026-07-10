@@ -1,18 +1,18 @@
 {
   "/api/ivs": {
-    "target": "http://10.10.3.197:9096",
+    "target": "http://10.10.3.237:9097",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
   },
   "/PASService": {
-    "target": "https://oipauat.britam.com:5443",
+    "target": "http://10.10.3.236:8012",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
   },
   "/api": {
-    "target": "http://10.10.3.197:8017",
+    "target": "http://localhost:8015",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"

@@ -334,12 +334,12 @@ export class SecurityGroupWizardComponent implements OnInit {
 
     console.log('Final Payload:', JSON.stringify(request, null, 2));
 
-    this.securityGroupService.generateInsertQueries(request).subscribe({
-      next: (queries) => {
-        this.generatedQueries = queries;
-        console.log('Queries generated:', queries);
+    this.securityGroupService.generateMigrationScripts(request).subscribe({
+      next: (res: any) => {
+        this.generatedQueries = res.scripts || [];
+        console.log('Queries generated:', res.scripts);
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('Error generating queries:', err);
       }
     });

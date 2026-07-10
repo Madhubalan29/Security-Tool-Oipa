@@ -1935,3 +1935,56 @@
 }
 
 
+// ── Grouped Inquiry Screens ──────────────────────────────────
+.toggle-list-grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  &.nested {
+    margin-top: 8px;
+  }
+}
+
+.inquiry-type-group {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.inquiry-group-title {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-light);
+
+  &.nested {
+    font-size: 10px;
+    padding: 8px 12px;
+  }
+}
+
+.nested-toggle-list {
+  padding: 4px 0;
+  background: var(--surface);
+
+  .toggle-item {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-light);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &.nested {
+      padding: 8px 12px;
+    }
+  }
+}

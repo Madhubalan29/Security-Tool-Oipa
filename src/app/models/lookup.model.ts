@@ -41,6 +41,8 @@ export interface AsInquiryScreen {
   planGuid: string;
   productGuid: string;
   inquiryScreenNameGuid: string; // The specific GUID mapped in security mapping
+  typeCode?: string;
+  typeName?: string;
 }
 
 export interface AsWebService {

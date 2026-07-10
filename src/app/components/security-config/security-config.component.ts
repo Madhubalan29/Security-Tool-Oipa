@@ -49,8 +49,10 @@ interface ProductConfig {
   selected: boolean;
   productPages: CompanyPageDto[];
   productTransactions: (ProductTransactionDto & { name?: string })[];
+  productInquiries: (CompanyInquiryDto & { name?: string, typeCode?: string, typeName?: string })[];
   pageFilter?: string;
   txnFilter?: string;
+  inquiryFilter?: string;
   configured?: boolean;
 }
 
@@ -61,9 +63,10 @@ interface PlanConfig {
   planPages: CompanyPageDto[];
   planTransactions: (PlanTransactionDto & { name?: string })[];
   productPlanTransactions?: (PlanTransactionDto & { name?: string })[];
-  planInquiries: (CompanyInquiryDto & { name?: string })[];
+  planInquiries: (CompanyInquiryDto & { name?: string, typeCode?: string, typeName?: string })[];
   pageFilter?: string;
   txnFilter?: string;
+  inquiryFilter?: string;
   configured?: boolean;
 }
 
@@ -127,7 +130,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   activeStep = 0; // 0 = company selection, 1 = configuration
   activeCompanyIndex = 0;
   activeTabIndex = 0;
-  viewType: 'tree' | 'tabs' = 'tree';
+  viewType: string = 'tree';
   expandedNodes: { [key: string]: boolean } = {};
 
   // Selection state for add-entity dropdowns
@@ -418,6 +421,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           availablePlans: []
         };
 
+        if (config.loaded && config.companyInquiries && config.companyInquiries.length > 0) {
+          const hasTypes = config.companyInquiries.some(i => i.typeCode || i.typeName);
+          if (!hasTypes) {
+            config.loaded = false;
+          }
+        }
+
         // Re-fetch available products & plans from the API for loaded companies
         if (config.selected || config.loaded) {
           this.lookupService.getProductsByCompany(company.companyGuid)
@@ -576,7 +586,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       const pageGuidUpper = p.pageGuid.toUpperCase();
       let buttonsToMap = this.allButtons;
       if (hasBase) {
-        buttonsToMap = this.allButtons.filter(b => this.unionAllPageButtons.has(b.buttonGuid.toUpperCase()));
+        // Use per-page button set from IT Admin: only show buttons IT Admin grants for this specific page
+        const allowedForPage = this.unionCompanyPages.get(pageGuidUpper);
+        if (allowedForPage) {
+          buttonsToMap = this.allButtons.filter(b => allowedForPage.has(b.buttonGuid.toUpperCase()));
+        } else {
+          buttonsToMap = [];
+        }
       }
       return {
         pageGuid: p.pageGuid,
@@ -611,7 +627,9 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         config.companyInquiries = screensToMap.map(s => ({
           inquiryScreenNameGuid: s.inquiryScreenGuid,
           name: s.screenName,
-          selected: false
+          selected: false,
+          typeCode: s.typeCode,
+          typeName: s.typeName
         }));
 
         config.availableProducts = res.products.sort((a, b) => (a.productName || '').localeCompare(b.productName || ''));
@@ -699,8 +717,11 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     this.isSubLoading = true;
 
-    this.lookupService.getTransactions(undefined, product.productGuid).subscribe({
-      next: (txns) => {
+    forkJoin({
+      txns: this.lookupService.getTransactions(undefined, product.productGuid),
+      inqs: this.lookupService.getInquiryScreens(undefined, undefined, product.productGuid)
+    }).subscribe({
+      next: (res) => {
         const hasBase = !!this.baseConfig;
 
         let pagesToMap = this.allPages;
@@ -712,7 +733,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           const pageGuidUpper = p.pageGuid.toUpperCase();
           let buttonsToMap = this.allButtons;
           if (hasBase) {
-            buttonsToMap = this.allButtons.filter(b => this.unionAllPageButtons.has(b.buttonGuid.toUpperCase()));
+            // Use per-page button set from IT Admin: only show buttons IT Admin grants for this specific page
+            const allowedForPage = this.unionProductPages.get(pageGuidUpper) || this.unionCompanyPages.get(pageGuidUpper);
+            if (allowedForPage) {
+              buttonsToMap = this.allButtons.filter(b => allowedForPage.has(b.buttonGuid.toUpperCase()));
+            } else {
+              buttonsToMap = [];
+            }
           }
           return {
             pageGuid: p.pageGuid,
@@ -726,7 +753,7 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           };
         });
 
-        let txnsToMap = txns.sort((a, b) => (a.transactionName || '').localeCompare(b.transactionName || ''));
+        let txnsToMap = res.txns.sort((a, b) => (a.transactionName || '').localeCompare(b.transactionName || ''));
 
         const productTransactions = txnsToMap.map(t => {
           const txnGuidUpper = t.transactionGuid.toUpperCase();
@@ -746,12 +773,23 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           };
         });
 
+        let productInqsToMap = res.inqs.sort((a, b) => (a.screenName || '').localeCompare(b.screenName || ''));
+        const productInquiries = productInqsToMap.map(inq => ({
+          inquiryScreenNameGuid: inq.inquiryScreenGuid,
+          name: inq.screenName,
+          selected: false,
+          typeCode: inq.typeCode,
+          typeName: inq.typeName
+        }));
+
         const newProduct: ProductConfig = {
           productGuid: product.productGuid,
           name: product.productName,
           selected: true,
           productPages,
-          productTransactions
+          productTransactions,
+          productInquiries,
+          inquiryFilter: ''
         };
 
         // Apply existing config if modify mode
@@ -780,7 +818,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
               const pageGuidUpper = p.pageGuid.toUpperCase();
               let buttonsToMap = this.allButtons;
               if (hasBase) {
-                buttonsToMap = this.allButtons.filter(b => this.unionAllPageButtons.has(b.buttonGuid.toUpperCase()));
+                // Use per-page button set from IT Admin: only show buttons IT Admin grants for this specific page
+                const allowedForPage = this.unionPlanPages.get(pageGuidUpper) || this.unionCompanyPages.get(pageGuidUpper);
+                if (allowedForPage) {
+                  buttonsToMap = this.allButtons.filter(b => allowedForPage.has(b.buttonGuid.toUpperCase()));
+                } else {
+                  buttonsToMap = [];
+                }
               }
               return {
                 pageGuid: p.pageGuid,
@@ -836,7 +880,9 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
                 planConfig!.planInquiries = planInqsToMap.map(inq => ({
                   inquiryScreenNameGuid: inq.inquiryScreenGuid,
                   name: inq.screenName,
-                  selected: false
+                  selected: false,
+                  typeCode: inq.typeCode,
+                  typeName: inq.typeName
                 }));
 
                 // Apply existing plan config again in case transactions/inquiries arrived late
@@ -852,12 +898,12 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
             });
           }
 
-          // Initialize/override productPlanTransactions with the product's transactions
-          planConfig.productPlanTransactions = newProduct.productTransactions.map(pt => ({
-            transactionGuid: pt.transactionGuid,
-            name: pt.name,
+          // Clone product transactions for the plan so they can be configured independently
+          planConfig.productPlanTransactions = newProduct.productTransactions.map(t => ({
+            transactionGuid: t.transactionGuid,
+            name: t.name,
             selected: false,
-            buttons: pt.buttons.map(b => ({
+            buttons: t.buttons.map(b => ({
               buttonGuid: b.buttonGuid,
               name: b.name,
               selected: false
@@ -912,6 +958,21 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         });
         txn.selected = true; // Txn is granted access
         txn.configured = true;
+      }
+    });
+
+    existing.productInquiries?.forEach(ei => {
+      const inq = productConfig.productInquiries.find(i => guidEq(i.inquiryScreenNameGuid, ei.inquiryScreenNameGuid));
+      if (inq) {
+        inq.selected = true;
+        inq.configured = true;
+      } else {
+        productConfig.productInquiries.push({
+          inquiryScreenNameGuid: ei.inquiryScreenNameGuid,
+          name: ei.name || 'Unknown Screen',
+          selected: true,
+          configured: true
+        });
       }
     });
   }
@@ -969,7 +1030,13 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           const pageGuidUpper = p.pageGuid.toUpperCase();
           let buttonsToMap = this.allButtons;
           if (hasBase) {
-            buttonsToMap = this.allButtons.filter(b => this.unionAllPageButtons.has(b.buttonGuid.toUpperCase()));
+            // Use per-page button set from IT Admin: only show buttons IT Admin grants for this specific page
+            const allowedForPage = this.unionPlanPages.get(pageGuidUpper) || this.unionCompanyPages.get(pageGuidUpper);
+            if (allowedForPage) {
+              buttonsToMap = this.allButtons.filter(b => allowedForPage.has(b.buttonGuid.toUpperCase()));
+            } else {
+              buttonsToMap = [];
+            }
           }
           return {
             pageGuid: p.pageGuid,
@@ -1028,7 +1095,9 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
         const planInquiries = inqsToMap.map((inq: any) => ({
           inquiryScreenNameGuid: inq.inquiryScreenGuid,
           name: inq.screenName,
-          selected: false
+          selected: false,
+          typeCode: inq.typeCode,
+          typeName: inq.typeName
         }));
 
         const newPlan: PlanConfig = {
@@ -1038,7 +1107,8 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           planPages,
           planTransactions,
           productPlanTransactions,
-          planInquiries
+          planInquiries,
+          inquiryFilter: ''
         };
 
         // Apply existing config if modify mode
@@ -1202,75 +1272,240 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     return selected > 0 && selected < txn.buttons.length;
   }
 
+  // Helper to extract any items from existing DTO list that were not loaded/present in the UI list
+  getPreservedItems<T, U>(
+    existingItems: T[] | undefined,
+    uiItems: U[] | undefined,
+    matchFn: (existing: T, ui: U) => boolean,
+    mapFn: (existing: T) => any
+  ): any[] {
+    if (!existingItems) return [];
+    const preserved: any[] = [];
+    existingItems.forEach(existingItem => {
+      const found = uiItems?.some(uiItem => matchFn(existingItem, uiItem));
+      if (!found) {
+        preserved.push(mapFn(existingItem));
+      }
+    });
+    return preserved;
+  }
+
   // ── Build Payload & Save ──
   buildPayload(): SecurityGroupRequestDto {
     const companies: CompanyDto[] = this.selectedCompanies.map(config => {
-      // Include pages that are selected OR have at least one button selected
+      const existingCompany = this.existingPayload?.securityGroup.companies.find(c => guidEq(c.companyGuid, config.company.companyGuid));
+
+      // 1. Company Pages
       const companyPages = config.companyPages
         .filter(p => p.selected || p.buttons.some(b => b.selected))
         .map(p => ({
           pageGuid: p.pageGuid,
           buttons: p.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
         }));
+      const preservedCompanyPages = this.getPreservedItems(
+        existingCompany?.companyPages,
+        config.companyPages,
+        (e, u) => guidEq(e.pageGuid, u.pageGuid),
+        e => ({
+          pageGuid: e.pageGuid,
+          buttons: (e.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+        })
+      );
+      const finalCompanyPages = [...companyPages, ...preservedCompanyPages];
 
+      // 2. Company Inquiries
       const companyInquiries = config.companyInquiries
         .filter(i => i.selected)
         .map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }));
+      const preservedCompanyInquiries = this.getPreservedItems(
+        existingCompany?.companyInquiries,
+        config.companyInquiries,
+        (e, u) => guidEq(e.inquiryScreenNameGuid, u.inquiryScreenNameGuid),
+        e => ({ inquiryScreenNameGuid: e.inquiryScreenNameGuid })
+      );
+      const finalCompanyInquiries = [...companyInquiries, ...preservedCompanyInquiries];
 
+      // 3. Company Web Services
       const companyWebServices = config.companyWebServices
         .filter(w => w.selected)
         .map(w => ({ webServiceGuid: w.webServiceGuid }));
+      const preservedCompanyWebServices = this.getPreservedItems(
+        existingCompany?.companyWebServices,
+        config.companyWebServices,
+        (e, u) => guidEq(e.webServiceGuid, u.webServiceGuid),
+        e => ({ webServiceGuid: e.webServiceGuid })
+      );
+      const finalCompanyWebServices = [...companyWebServices, ...preservedCompanyWebServices];
 
+      // 4. Products
       const products = config.products
         .filter(prod => prod.selected)
-        .map(prod => ({
-          productGuid: prod.productGuid,
-          productPages: prod.productPages
+        .map(prod => {
+          const existingProduct = existingCompany?.products?.find(p => guidEq(p.productGuid, prod.productGuid));
+
+          // 4a. Product Pages
+          const productPages = prod.productPages
             .filter(p => p.selected || p.buttons.some(b => b.selected))
             .map(p => ({
               pageGuid: p.pageGuid,
               buttons: p.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
-            })),
-          productTransactions: prod.productTransactions
+            }));
+          const preservedProductPages = this.getPreservedItems(
+            existingProduct?.productPages,
+            prod.productPages,
+            (e, u) => guidEq(e.pageGuid, u.pageGuid),
+            e => ({
+              pageGuid: e.pageGuid,
+              buttons: (e.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+            })
+          );
+
+          // 4b. Product Transactions
+          const productTransactions = prod.productTransactions
             .filter(t => t.selected || t.buttons.some(b => b.selected))
             .map(t => ({
               transactionGuid: t.transactionGuid,
               buttons: t.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
-            }))
-        }));
+            }));
+          const preservedProductTransactions = this.getPreservedItems(
+            existingProduct?.productTransactions,
+            prod.productTransactions,
+            (e, u) => guidEq(e.transactionGuid, u.transactionGuid),
+            e => ({
+              transactionGuid: e.transactionGuid,
+              buttons: (e.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+            })
+          );
 
+          // 4c. Product Inquiries
+          const productInquiries = prod.productInquiries
+            .filter(i => i.selected)
+            .map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }));
+          const preservedProductInquiries = this.getPreservedItems(
+            existingProduct?.productInquiries,
+            prod.productInquiries,
+            (e, u) => guidEq(e.inquiryScreenNameGuid, u.inquiryScreenNameGuid),
+            e => ({ inquiryScreenNameGuid: e.inquiryScreenNameGuid })
+          );
+
+          return {
+            productGuid: prod.productGuid,
+            productPages: [...productPages, ...preservedProductPages],
+            productTransactions: [...productTransactions, ...preservedProductTransactions],
+            productInquiries: [...productInquiries, ...preservedProductInquiries]
+          };
+        });
+
+      const preservedProducts = this.getPreservedItems(
+        existingCompany?.products,
+        config.products,
+        (e, u) => guidEq(e.productGuid, u.productGuid),
+        e => ({
+          productGuid: e.productGuid,
+          productPages: (e.productPages || []).map(p => ({
+            pageGuid: p.pageGuid,
+            buttons: (p.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+          })),
+          productTransactions: (e.productTransactions || []).map(t => ({
+            transactionGuid: t.transactionGuid,
+            buttons: (t.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+          })),
+          productInquiries: (e.productInquiries || []).map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }))
+        })
+      );
+      const finalProducts = [...products, ...preservedProducts];
+
+      // 5. Plans
       const plans = config.plans
         .filter(plan => plan.selected)
-        .map(plan => ({
-          planGuid: plan.planGuid,
-          planPages: plan.planPages
+        .map(plan => {
+          const existingPlan = existingCompany?.plans?.find(p => guidEq(p.planGuid, plan.planGuid));
+
+          // 5a. Plan Pages
+          const planPages = plan.planPages
             .filter(p => p.selected || p.buttons.some(b => b.selected))
             .map(p => ({
               pageGuid: p.pageGuid,
               buttons: p.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
-            })),
-          // Merge both independent and product-derived plan transactions
-          planTransactions: [
+            }));
+          const preservedPlanPages = this.getPreservedItems(
+            existingPlan?.planPages,
+            plan.planPages,
+            (e, u) => guidEq(e.pageGuid, u.pageGuid),
+            e => ({
+              pageGuid: e.pageGuid,
+              buttons: (e.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+            })
+          );
+
+          // 5b. Plan Transactions (merge plan-level and product-derived transactions)
+          const planTransactions = [
+            ...plan.planTransactions.filter(t => t.selected || t.buttons.some(b => b.selected)),
+            ...(plan.productPlanTransactions || []).filter(t => t.selected || t.buttons.some(b => b.selected))
+          ].map(t => ({
+            transactionGuid: t.transactionGuid,
+            buttons: t.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
+          }));
+
+          const loadedUiTxns = [
             ...plan.planTransactions,
             ...(plan.productPlanTransactions || [])
-          ]
-            .filter(t => t.selected || t.buttons.some(b => b.selected))
-            .map(t => ({
-              transactionGuid: t.transactionGuid,
-              buttons: t.buttons.filter(b => b.selected).map(b => ({ buttonGuid: b.buttonGuid }))
-            })),
-          planInquiries: plan.planInquiries
+          ];
+          const preservedPlanTransactions = this.getPreservedItems(
+            existingPlan?.planTransactions,
+            loadedUiTxns,
+            (e, u) => guidEq(e.transactionGuid, u.transactionGuid),
+            e => ({
+              transactionGuid: e.transactionGuid,
+              buttons: (e.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+            })
+          );
+
+          // 5c. Plan Inquiries
+          const planInquiries = plan.planInquiries
             .filter(i => i.selected)
-            .map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }))
-        }));
+            .map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }));
+          const preservedPlanInquiries = this.getPreservedItems(
+            existingPlan?.planInquiries,
+            plan.planInquiries,
+            (e, u) => guidEq(e.inquiryScreenNameGuid, u.inquiryScreenNameGuid),
+            e => ({ inquiryScreenNameGuid: e.inquiryScreenNameGuid })
+          );
+
+          return {
+            planGuid: plan.planGuid,
+            planPages: [...planPages, ...preservedPlanPages],
+            planTransactions: [...planTransactions, ...preservedPlanTransactions],
+            planInquiries: [...planInquiries, ...preservedPlanInquiries]
+          };
+        });
+
+      const preservedPlans = this.getPreservedItems(
+        existingCompany?.plans,
+        config.plans,
+        (e, u) => guidEq(e.planGuid, u.planGuid),
+        e => ({
+          planGuid: e.planGuid,
+          planPages: (e.planPages || []).map(p => ({
+            pageGuid: p.pageGuid,
+            buttons: (p.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+          })),
+          planTransactions: (e.planTransactions || []).map(t => ({
+            transactionGuid: t.transactionGuid,
+            buttons: (t.buttons || []).map(b => ({ buttonGuid: b.buttonGuid }))
+          })),
+          planInquiries: (e.planInquiries || []).map(i => ({ inquiryScreenNameGuid: i.inquiryScreenNameGuid }))
+        })
+      );
+      const finalPlans = [...plans, ...preservedPlans];
 
       return {
         companyGuid: config.company.companyGuid,
-        companyPages,
-        companyInquiries,
-        companyWebServices,
-        products,
-        plans
+        companyPages: finalCompanyPages,
+        companyInquiries: finalCompanyInquiries,
+        companyWebServices: finalCompanyWebServices,
+        products: finalProducts,
+        plans: finalPlans
       };
     });
 
@@ -1301,7 +1536,18 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   getInquiryName(companyGuid: string, screenGuid: string): string {
     const config = this.companyConfigs.find(c => guidEq(c.company.companyGuid, companyGuid));
-    return config?.companyInquiries.find(i => guidEq(i.inquiryScreenNameGuid, screenGuid))?.name || 'Unknown Inquiry';
+    if (!config) return 'Unknown Inquiry';
+    let found = config.companyInquiries.find(i => guidEq(i.inquiryScreenNameGuid, screenGuid));
+    if (found) return found.name || 'Unknown Inquiry';
+    for (const prod of config.products) {
+      found = prod.productInquiries?.find(i => guidEq(i.inquiryScreenNameGuid, screenGuid));
+      if (found) return found.name || 'Unknown Inquiry';
+    }
+    for (const plan of config.plans) {
+      found = plan.planInquiries?.find(i => guidEq(i.inquiryScreenNameGuid, screenGuid));
+      if (found) return found.name || 'Unknown Inquiry';
+    }
+    return 'Unknown Inquiry';
   }
 
   getProductName(companyGuid: string, productGuid: string): string {
@@ -1792,6 +2038,18 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     if (txnNodes.length > 0) {
       nodes.push({ name: 'Product Transactions', icon: 'sync', children: txnNodes });
     }
+
+    const inquiryNodes: HierarchicalDiffNode[] = [];
+    prod.productInquiries?.forEach(i => {
+      inquiryNodes.push({
+        name: this.getInquiryName(companyGuid, i.inquiryScreenNameGuid),
+        type: 'add',
+        icon: 'search'
+      });
+    });
+    if (inquiryNodes.length > 0) {
+      nodes.push({ name: 'Product Inquiry Screens', icon: 'web', children: inquiryNodes });
+    }
   }
 
   private addPlanDiffNodes(nodes: HierarchicalDiffNode[], plan: PlanDto, planName: string, companyGuid: string): void {
@@ -1995,6 +2253,33 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
     if (txnNodes.length > 0) {
       nodes.push({ name: 'Product Transactions', icon: 'sync', children: txnNodes });
+    }
+
+    const inquiryNodes: HierarchicalDiffNode[] = [];
+    const currInqs = curr.productInquiries || [];
+    const existInqs = exist.productInquiries || [];
+
+    currInqs.forEach(ci => {
+      if (!existInqs.some(ei => guidEq(ei.inquiryScreenNameGuid, ci.inquiryScreenNameGuid))) {
+        inquiryNodes.push({
+          name: this.getInquiryName(companyGuid, ci.inquiryScreenNameGuid),
+          type: 'add',
+          icon: 'search'
+        });
+      }
+    });
+    existInqs.forEach(ei => {
+      if (!currInqs.some(ci => guidEq(ci.inquiryScreenNameGuid, ei.inquiryScreenNameGuid))) {
+        inquiryNodes.push({
+          name: this.getInquiryName(companyGuid, ei.inquiryScreenNameGuid),
+          type: 'remove',
+          icon: 'search'
+        });
+      }
+    });
+
+    if (inquiryNodes.length > 0) {
+      nodes.push({ name: 'Product Inquiry Screens', icon: 'web', children: inquiryNodes });
     }
   }
 
@@ -2721,6 +3006,9 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       const txnGuid = this.findProductTxnGuidForButton(s.companyGuid, s.productGuid, s.entityGuid, s.script);
       return txnGuid ? `company_${s.companyGuid}_product_${s.productGuid}_txn_${txnGuid}_button_${s.entityGuid}` : null;
     }
+    if (s.entityType === 'PRODUCT_INQUIRY') {
+      return `company_${s.companyGuid}_product_${s.productGuid}_inquiry_${s.entityGuid}`;
+    }
     if (s.entityType === 'PLAN') {
       return `company_${s.companyGuid}_plan_${s.planGuid}`;
     }
@@ -3230,6 +3518,35 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
           productNode.children!.push(txnsFolder);
         }
 
+        // Product Inquiries
+        const prodInqScripts = migrationScripts.filter(s => 
+          guidEq(s.companyGuid, companyGuid) && guidEq(s.productGuid, productGuid) && !s.planGuid && s.entityType === 'PRODUCT_INQUIRY'
+        );
+        if (prodInqScripts.length > 0) {
+          const inqsFolder: DialogFilterNode = {
+            id: `company_${companyGuid}_product_${productGuid}_inqs_folder`,
+            name: 'Inquiries',
+            type: 'product_inquiries' as any,
+            checked: true,
+            expanded: false,
+            companyGuid: companyGuid!,
+            productGuid: productGuid!,
+            children: []
+          };
+          prodInqScripts.forEach(s => {
+            inqsFolder.children!.push({
+              id: `company_${companyGuid}_product_${productGuid}_inquiry_${s.entityGuid}`,
+              name: this.getInquiryName(companyGuid, s.entityGuid),
+              type: 'inquiry',
+              checked: true,
+              companyGuid: companyGuid!,
+              productGuid: productGuid!,
+              inquiryGuid: s.entityGuid
+            });
+          });
+          productNode.children!.push(inqsFolder);
+        }
+
         // 3. Plans belonging to this product
         const planGuids = Array.from(new Set(
           migrationScripts
@@ -3352,7 +3669,11 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
 
   // Track by functions for ngFor performance
   trackByGuid(index: number, item: any): string {
-    return item.pageGuid || item.buttonGuid || item.productGuid || item.planGuid || item.transactionGuid || index;
+    return item.pageGuid || item.buttonGuid || item.productGuid || item.planGuid || item.transactionGuid || item.inquiryScreenNameGuid || item.inquiryScreenGuid || index;
+  }
+
+  trackByTypeName(index: number, item: any): string {
+    return item.typeName || index;
   }
 
   trackByCompanyGuid(index: number, item: CompanyConfig): string {
@@ -3392,6 +3713,26 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
   get areAllInquiriesSelected(): boolean {
     if (!this.activeConfig || this.activeConfig.companyInquiries.length === 0) return false;
     return this.activeConfig.companyInquiries.every(i => i.selected);
+  }
+
+  selectAllProductInqs(product: ProductConfig, checked: boolean): void {
+    if (!product || !product.productInquiries) return;
+    product.productInquiries.forEach(i => i.selected = checked);
+  }
+
+  areAllProductInquiriesSelected(product: ProductConfig): boolean {
+    if (!product || !product.productInquiries || product.productInquiries.length === 0) return false;
+    return product.productInquiries.every(i => i.selected);
+  }
+
+  selectAllPlanInqs(plan: PlanConfig, checked: boolean): void {
+    if (!plan || !plan.planInquiries) return;
+    plan.planInquiries.forEach(i => i.selected = checked);
+  }
+
+  areAllPlanInquiriesSelected(plan: PlanConfig): boolean {
+    if (!plan || !plan.planInquiries || plan.planInquiries.length === 0) return false;
+    return plan.planInquiries.every(i => i.selected);
   }
 
   selectAllWebServices(checked: boolean): void {
@@ -3612,6 +3953,9 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
     if (!this.activeConfig) return [];
     const filter = this.activeConfig.inquiryFilter || '';
     let inquiries = this.activeConfig.companyInquiries;
+
+
+
     if (filter) {
       const q = filter.toLowerCase();
       inquiries = inquiries.filter(i => (i.name || '').toLowerCase().includes(q));
@@ -3658,6 +4002,52 @@ export class SecurityConfigComponent implements OnInit, OnDestroy {
       txns = txns.filter(t => (t.name || '').toLowerCase().includes(q));
     }
     return [...txns].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  filterProductInquiries(product: ProductConfig): (CompanyInquiryDto & { name?: string, typeCode?: string, typeName?: string })[] {
+    const filter = product.inquiryFilter || '';
+    let inquiries = product.productInquiries || [];
+    if (filter) {
+      const q = filter.toLowerCase();
+      inquiries = inquiries.filter(i => (i.name || '').toLowerCase().includes(q));
+    }
+    return [...inquiries].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  filterPlanInquiries(plan: PlanConfig): (CompanyInquiryDto & { name?: string, typeCode?: string, typeName?: string })[] {
+    const filter = plan.inquiryFilter || '';
+    let inquiries = plan.planInquiries || [];
+    if (filter) {
+      const q = filter.toLowerCase();
+      inquiries = inquiries.filter(i => (i.name || '').toLowerCase().includes(q));
+    }
+    return [...inquiries].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  getGroupedInquiries(inquiries: any[]): { typeName: string, items: any[] }[] {
+    const groups: { [key: string]: any[] } = {};
+    inquiries.forEach(inq => {
+      const type = inq.typeName || 'Other';
+      if (!groups[type]) {
+        groups[type] = [];
+      }
+      groups[type].push(inq);
+    });
+
+    const order = ['Main Menu', 'Policy Level', 'Client Level'];
+    return Object.keys(groups)
+      .sort((a, b) => {
+        const idxA = order.indexOf(a);
+        const idxB = order.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b);
+      })
+      .map(typeName => ({
+        typeName,
+        items: groups[typeName]
+      }));
   }
 
   filterPlanPages(plan: PlanConfig): CompanyPageDto[] {
