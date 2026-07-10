@@ -35,6 +35,15 @@ export class DashboardComponent {
       enabled: true,
       gradient: 'linear-gradient(135deg, #f59e0b, #ea580c)',
       shadowColor: 'rgba(245, 158, 11, 0.3)'
+    },
+    {
+      title: 'Chart of Accounts',
+      description: 'Configure financial entity mappings, transaction entries, criteria rules, and accounting result definitions.',
+      icon: 'account_balance_wallet',
+      route: '/chart-of-accounts',
+      enabled: true,
+      gradient: 'linear-gradient(135deg, #0284c7, #0369a1)',
+      shadowColor: 'rgba(2, 132, 199, 0.3)'
     }
   ];
 

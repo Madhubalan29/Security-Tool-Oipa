@@ -34,6 +34,8 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 
+import { MatTreeModule } from '@angular/material/tree';
+
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 
@@ -48,6 +50,8 @@ import { SqlConfirmDialogComponent } from './components/sql-confirm-dialog/sql-c
 import { RateLoaderComponent } from './components/rate-loader/rate-loader.component';
 import { UserListComponent } from './components/user-list/user-list.component';
 import { UserFormComponent } from './components/user-form/user-form.component';
+import { ChartOfAccountsComponent } from './components/chart-of-accounts/chart-of-accounts.component';
+import { CoaViewSummaryDialogComponent } from './components/coa-view-summary-dialog/coa-view-summary-dialog.component';
 
 @NgModule({
   declarations: [
@@ -61,7 +65,9 @@ import { UserFormComponent } from './components/user-form/user-form.component';
     SqlConfirmDialogComponent,
     RateLoaderComponent,
     UserListComponent,
-    UserFormComponent
+    UserFormComponent,
+    ChartOfAccountsComponent,
+    CoaViewSummaryDialogComponent
   ],
   imports: [
     BrowserModule,
@@ -99,7 +105,8 @@ import { UserFormComponent } from './components/user-form/user-form.component';
     MatDialogModule,
     MatAutocompleteModule,
     MatDatepickerModule,
-    MatNativeDateModule
+    MatNativeDateModule,
+    MatTreeModule
   ],
   providers: [],
   bootstrap: [AppComponent]

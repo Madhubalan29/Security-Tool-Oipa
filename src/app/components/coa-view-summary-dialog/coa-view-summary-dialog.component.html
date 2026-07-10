@@ -1,0 +1,118 @@
+<div class="dialog-container">
+  <div class="dialog-header">
+    <div class="dh-title">
+      <mat-icon>visibility</mat-icon>
+      <h2>Chart of Accounts Configuration Summary</h2>
+    </div>
+    <button mat-icon-button (click)="close()"><mat-icon>close</mat-icon></button>
+  </div>
+
+  <div class="dialog-content">
+    <div class="section-card">
+      <div class="sc-header">
+        <mat-icon>account_balance</mat-icon>
+        <h3>Account Information</h3>
+      </div>
+      <div class="sc-body grid-2">
+        <div class="info-item">
+          <span class="lbl">Account Number</span>
+          <span class="val">{{ data.accountNumber || '-' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="lbl">Description</span>
+          <span class="val">{{ data.accountDescription || '-' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="lbl">Transaction</span>
+          <span class="val">{{ data.transactionName || '-' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="lbl">Suspense Linked</span>
+          <span class="val">
+            <mat-icon [class.active]="data.linkSuspenseFlag === '1'">{{ data.linkSuspenseFlag === '1' ? 'check_circle' : 'cancel' }}</mat-icon>
+            {{ data.linkSuspenseFlag === '1' ? 'Yes' : 'No' }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="sc-header">
+        <mat-icon>receipt_long</mat-icon>
+        <h3>Financial Rules</h3>
+      </div>
+      <div class="sc-body grid-3">
+        <div class="info-item">
+          <span class="lbl">Credit / Debit</span>
+          <span class="val tag">{{ data.debitCreditLabel || '-' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="lbl">Accounting Type</span>
+          <span class="val tag">{{ data.accountingTypeLabel || '-' }}</span>
+        </div>
+        <div class="info-item" *ngIf="data.accountingTypeLabel === 'MathVariable'">
+          <span class="lbl">Accounting Amount</span>
+          <span class="val">{{ data.accountingAmountField || '-' }}</span>
+        </div>
+        <div class="info-item" *ngIf="data.accountingTypeLabel === 'By Fund'">
+          <span class="lbl">Fund Type</span>
+          <span class="val">{{ data.fundTypeCode || '-' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="lbl">Disbursement Status</span>
+          <span class="val">{{ data.originalDisbursementStatusCode || '-' }}</span>
+        </div>
+        <div class="info-item span-all">
+          <span class="lbl">Entry Description</span>
+          <span class="val">{{ data.entryDescription || '-' }}</span>
+        </div>
+      </div>
+      <div class="sc-body flags-row">
+        <div class="flag-item" [class.active]="data.gainLossFlag === '1'">
+          <mat-icon>{{ data.gainLossFlag === '1' ? 'check_circle' : 'cancel' }}</mat-icon> Gain / Loss
+        </div>
+        <div class="flag-item" [class.active]="data.flipOnNegativeFlag === '1'">
+          <mat-icon>{{ data.flipOnNegativeFlag === '1' ? 'check_circle' : 'cancel' }}</mat-icon> Flip on Negative
+        </div>
+        <div class="flag-item" [class.active]="data.doReversalAccountingFlag === '1'">
+          <mat-icon>{{ data.doReversalAccountingFlag === '1' ? 'check_circle' : 'cancel' }}</mat-icon> Reversal Accounting
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="sc-header">
+        <mat-icon>rule</mat-icon>
+        <h3>Execution Criteria</h3>
+      </div>
+      <div class="sc-body">
+        <div class="info-item">
+          <span class="lbl">Write Accounting</span>
+          <span class="val">
+            <mat-icon [class.active]="hasWriteAccounting">{{ hasWriteAccounting ? 'check_circle' : 'cancel' }}</mat-icon>
+            {{ hasWriteAccounting ? 'Enabled' : 'Disabled' }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="sc-header">
+        <mat-icon>output</mat-icon>
+        <h3>Results & Sections</h3>
+      </div>
+      <div class="sc-body flex-wrap">
+        <div class="result-tag" *ngFor="let res of data.resultList">
+          <mat-icon>label</mat-icon> {{ res }}
+        </div>
+        <div *ngIf="!data.resultList || data.resultList.length === 0" class="no-data">
+          No result sections defined.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-footer">
+    <button mat-flat-button color="primary" (click)="close()">Close</button>
+  </div>
+</div>

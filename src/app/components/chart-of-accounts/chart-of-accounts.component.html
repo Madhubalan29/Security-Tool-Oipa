@@ -1,0 +1,446 @@
+<div class="coa-page animate-fade-in-up">
+
+  <!-- Page Header -->
+  <div class="header-banner">
+    <div class="header-left">
+      <button mat-button class="back-btn" routerLink="/dashboard">
+        <mat-icon>arrow_back</mat-icon> Dashboard
+      </button>
+      <div class="title-section">
+        <div class="header-icon-badge">
+          <mat-icon>account_balance_wallet</mat-icon>
+        </div>
+        <div>
+          <h1>Chart of Accounts</h1>
+          <p>Configure financial entity mappings, transaction entries, criteria rules and accounting result bindings</p>
+        </div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button *ngIf="currentView === 'hierarchy'" mat-raised-button color="primary" (click)="openCreateWizard()" class="create-btn">
+        <mat-icon>add</mat-icon> New Chart of Account
+      </button>
+      <button *ngIf="currentView === 'wizard'" mat-stroked-button (click)="backToHierarchy()" class="back-wizard-btn">
+        <mat-icon>arrow_back</mat-icon> Back
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <mat-progress-bar *ngIf="isLoading" mode="indeterminate" color="primary" class="loading-bar"></mat-progress-bar>
+
+  <!-- VIEW 1: Hierarchy -->
+  <div *ngIf="currentView === 'hierarchy'" class="hierarchy-container">
+
+    <!-- Premium Search Bar -->
+    <div class="premium-search-container">
+      <div class="premium-search-bar">
+        <!-- Dropdown select -->
+        <div class="search-type-dropdown">
+          <select #searchFilterTypeSelect [(ngModel)]="searchFilterType" (change)="onSearchFilterTypeChange(searchFilterTypeSelect.value)" class="search-select">
+            <option *ngFor="let opt of searchFilterOptions" [value]="opt">{{ opt }}</option>
+          </select>
+          <mat-icon class="select-icon">expand_more</mat-icon>
+        </div>
+
+        <div class="search-divider"></div>
+
+        <!-- Input field -->
+        <div class="search-input-field-wrap">
+          <input class="search-input-field" [(ngModel)]="searchQuery" (keyup.enter)="applyFilter()"
+                 [placeholder]="'Search ' + searchFilterType + '...'" />
+          <button *ngIf="searchQuery" class="clear-search-btn" (click)="clearSearch()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <!-- Action Search Button -->
+        <button class="search-submit-btn" (click)="applyFilter()">
+          <mat-icon>search</mat-icon>
+          <span>Search</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tree Panel -->
+    <div class="tree-panel">
+      <div class="tree-panel-header">
+        <mat-icon class="tph-icon">corporate_fare</mat-icon>
+        <span class="tph-title">Companies</span>
+        <span class="tph-count">{{ availableAccounts.length }} accounts</span>
+      </div>
+
+      <div class="tree-scroll">
+        <mat-tree [dataSource]="dataSource" [treeControl]="treeControl" class="coa-tree">
+
+          <!-- ── Leaf Node ── -->
+          <mat-tree-node *matTreeNodeDef="let node" matTreeNodeToggle>
+            <div class="tree-row leaf"
+                 [class.selected]="selectedNode === node"
+                 [ngClass]="'row-' + node.type"
+                 (click)="selectTreeNode(node)">
+              <span class="indent-spacer"></span>
+              <mat-icon class="ni" [ngClass]="'ic-' + node.type">{{ node.icon || 'circle' }}</mat-icon>
+              <span class="node-name">{{ node.name }}</span>
+              <span class="type-chip" [ngClass]="'ch-' + node.type">
+                {{ node.type === 'entry' && node.details?.accountingTypeCode === '03' ? 'MV' : node.type }}
+              </span>
+
+              <!-- Entry actions: view + edit (on hover/select) -->
+              <div class="row-actions" *ngIf="node.type === 'entry'">
+                <button class="ra-btn ra-view" matTooltip="View details"
+                        (click)="$event.stopPropagation(); openViewSummary(node)">
+                  <mat-icon>open_in_new</mat-icon>
+                </button>
+                <button class="ra-btn ra-edit" matTooltip="Edit"
+                        (click)="$event.stopPropagation(); openEditWizard(node)">
+                  <mat-icon>tune</mat-icon>
+                </button>
+              </div>
+            </div>
+          </mat-tree-node>
+
+          <!-- ── Expandable Node ── -->
+          <mat-nested-tree-node *matTreeNodeDef="let node; when: hasChild">
+            <div class="tree-row expandable"
+                 [class.selected]="selectedNode === node"
+                 [ngClass]="'row-' + node.type"
+                 (click)="selectTreeNode(node)">
+
+              <button mat-icon-button matTreeNodeToggle class="toggle-btn"
+                      (click)="$event.stopPropagation()"
+                      [style.visibility]="node.children?.length ? 'visible' : 'hidden'">
+                <mat-icon class="toggle-icon">
+                  {{ treeControl.isExpanded(node) ? 'expand_more' : 'chevron_right' }}
+                </mat-icon>
+              </button>
+
+              <mat-icon class="ni" [ngClass]="'ic-' + node.type">{{ node.icon || 'folder' }}</mat-icon>
+              <span class="node-name">{{ node.name }}</span>
+              <span class="type-chip" [ngClass]="'ch-' + node.type">{{ node.type }}</span>
+              <span class="child-badge" *ngIf="node.children?.length">{{ node.children.length }}</span>
+
+              <!-- ── Company row: inline search + add entity ── -->
+              <ng-container *ngIf="node.type === 'company'">
+                <div class="inline-search" (click)="$event.stopPropagation()">
+                  <mat-icon class="is-icon">search</mat-icon>
+                  <input class="is-input" [(ngModel)]="nodeFilters[nodeKey(node)]"
+                         (keydown)="$event.stopPropagation()"
+                         (keyup.enter)="applyNodeFilter(node)"
+                         (blur)="applyNodeFilter(node)"
+                         placeholder="Filter accounts…" />
+                  <button *ngIf="nodeFilters[nodeKey(node)]" class="is-clear"
+                          (click)="clearNodeFilter(node); $event.stopPropagation()">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+                <button class="ra-btn ra-add" matTooltip="Add New Entity"
+                        (click)="$event.stopPropagation(); openCreateEntityWizard(node)">
+                  <mat-icon>add_circle</mat-icon>
+                </button>
+              </ng-container>
+
+              <!-- ── Account row: inline search + add entity ── -->
+              <ng-container *ngIf="node.type === 'account'">
+                <div class="inline-search" (click)="$event.stopPropagation()">
+                  <mat-icon class="is-icon">search</mat-icon>
+                  <input class="is-input" [(ngModel)]="nodeFilters[nodeKey(node)]"
+                         (keydown)="$event.stopPropagation()"
+                         (keyup.enter)="applyNodeFilter(node)"
+                         (blur)="applyNodeFilter(node)"
+                         placeholder="Filter transactions…" />
+                  <button *ngIf="nodeFilters[nodeKey(node)]" class="is-clear"
+                          (click)="clearNodeFilter(node); $event.stopPropagation()">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+                <button class="ra-btn ra-add" matTooltip="Add New Entity"
+                        (click)="$event.stopPropagation(); openCreateEntityWizard(node)">
+                  <mat-icon>add_circle</mat-icon>
+                </button>
+              </ng-container>
+
+              <!-- ── Transaction row: add + edit (on hover / selected) ── -->
+              <div class="row-actions" *ngIf="node.type === 'transaction'">
+                <button class="ra-btn ra-add" matTooltip="Add Entry"
+                        (click)="$event.stopPropagation(); openCreateEntryWizard(node)">
+                  <mat-icon>add_circle</mat-icon>
+                </button>
+                <button class="ra-btn ra-edit" matTooltip="Edit"
+                        (click)="$event.stopPropagation(); openEditWizard(node)">
+                  <mat-icon>tune</mat-icon>
+                </button>
+              </div>
+
+            </div>
+            <ul [class.tree-invisible]="!treeControl.isExpanded(node)">
+              <ng-container matTreeNodeOutlet></ng-container>
+            </ul>
+          </mat-nested-tree-node>
+
+        </mat-tree>
+
+        <div class="empty-state" *ngIf="dataSource.data.length === 0 && !isLoading">
+          <mat-icon>search_off</mat-icon>
+          <p>No results found</p>
+          <button mat-stroked-button (click)="clearSearch()">Clear Search</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 2: Wizard -->
+  <div *ngIf="currentView === 'wizard'" class="workstation">
+    <div class="ws-header">
+      <div class="wsh-left">
+        <div class="wsh-icon" [class.entity-mode]="isNewEntityMode">
+          <mat-icon>{{ isNewEntityMode ? 'add_box' : 'account_balance' }}</mat-icon>
+        </div>
+        <div>
+          <h2>{{ wizardTitle }}</h2>
+          <span class="step-badge">
+            Step {{ activeStepIndex + 1 }} of {{ wizardSteps.length }}
+            <span *ngIf="isNewEntityMode" class="em-tag">Entity Mode</span>
+          </span>
+        </div>
+      </div>
+      <button mat-icon-button class="ws-close" (click)="backToHierarchy()" matTooltip="Exit">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <!-- Stepper -->
+    <div class="stepper-row">
+      <div *ngFor="let step of wizardSteps; let i = index"
+           class="step-pill" [class.active]="isStepActive(i)" [class.done]="isStepCompleted(i)"
+           (click)="setStep(i)">
+        <div class="sp-num">
+          <mat-icon *ngIf="isStepLocked(i)">lock</mat-icon>
+          <mat-icon *ngIf="!isStepLocked(i) && isStepCompleted(i)">check</mat-icon>
+          <span *ngIf="!isStepLocked(i) && !isStepCompleted(i)">{{ step.id }}</span>
+        </div>
+        <div class="sp-info">
+          <span class="sp-title">{{ step.title }}</span>
+          <span class="sp-sub">{{ step.subtitle }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step Content -->
+    <div class="step-body">
+
+      <!-- Step 1 -->
+      <div *ngIf="currentStepId === 1" class="step-pane animate-fade-in">
+        <div class="pane-head">
+          <div class="ph-icon"><mat-icon>account_balance</mat-icon></div>
+          <div><h3>Primary Company & Account Details</h3><p>Define the GL account ownership and identification</p></div>
+        </div>
+        <div class="fg two-col">
+          <mat-form-field appearance="outline" class="fw">
+            <mat-label>Primary Company</mat-label>
+            <mat-select [(ngModel)]="formData.primaryCompany" [disabled]="formData.lockStep1">
+              <mat-option *ngFor="let c of companyOptions" [value]="c">{{ c }}</mat-option>
+            </mat-select>
+            <mat-icon matSuffix>domain</mat-icon>
+          </mat-form-field>
+          <div class="account-input-wrap">
+            <mat-form-field appearance="outline" class="fw" [class.mat-form-field-invalid]="accountExistsError">
+              <mat-label>Account Number</mat-label>
+              <input matInput [(ngModel)]="formData.accountNumber" (ngModelChange)="checkAccountExists(false)" (blur)="checkAccountExists(true)" placeholder="e.g. 510116" [disabled]="formData.lockStep1">
+              <mat-icon matSuffix>tag</mat-icon>
+            </mat-form-field>
+            <div *ngIf="accountExistsError" class="input-error-msg">
+              Account already exists
+            </div>
+          </div>
+          <mat-form-field appearance="outline" class="fw span2">
+            <mat-label>Account Description</mat-label>
+            <textarea matInput [(ngModel)]="formData.accountDescription" rows="3" placeholder="Enter description…" [disabled]="formData.lockStep1"></textarea>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div *ngIf="currentStepId === 2" class="step-pane animate-fade-in">
+        <div class="pane-head">
+          <div class="ph-icon entity"><mat-icon>layers</mat-icon></div>
+          <div><h3>Entity & Transaction Mapping</h3><p>Map this entity to a transaction and configure suspense settings</p></div>
+        </div>
+        <div class="fg">
+          <mat-form-field appearance="outline" class="fw">
+            <mat-label>Transaction Name</mat-label>
+            <input type="text"
+                   placeholder="Search and select transaction..."
+                   aria-label="Transaction Name"
+                   matInput
+                   [(ngModel)]="formData.transaction"
+                   [matAutocomplete]="auto"
+                   [disabled]="formData.lockStep2"
+                   (ngModelChange)="filterTransactions($event)">
+            <mat-autocomplete #auto="matAutocomplete">
+              <mat-option *ngFor="let t of filteredTransactionOptions" [value]="t">
+                {{ t }}
+              </mat-option>
+            </mat-autocomplete>
+            <mat-icon matSuffix>swap_horiz</mat-icon>
+          </mat-form-field>
+          <div class="toggle-card">
+            <mat-checkbox [(ngModel)]="formData.suspense" color="primary" [disabled]="formData.lockStep2">
+              <div class="tc-text">
+                <strong>Enable Suspense Accounting</strong>
+                <span>Route unallocated funds into suspense GL</span>
+              </div>
+            </mat-checkbox>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div *ngIf="currentStepId === 3" class="step-pane animate-fade-in">
+        <div class="pane-head">
+          <div class="ph-icon"><mat-icon>receipt_long</mat-icon></div>
+          <div><h3>Accounting Entry & Type Rules</h3><p>Define financial rules, date ranges, and entry type parameters</p></div>
+        </div>
+        <div class="fg two-col">
+          <mat-form-field appearance="outline" class="fw">
+            <mat-label>Credit / Debit</mat-label>
+            <mat-select [(ngModel)]="formData.creditDebit" [disabled]="formData.lockStep3">
+              <mat-option *ngFor="let cd of creditDebitOptions" [value]="cd">{{ cd }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="fw">
+            <mat-label>Accounting Type</mat-label>
+            <mat-select [(ngModel)]="formData.type" [disabled]="formData.lockStep3">
+              <mat-option *ngFor="let t of typeOptions" [value]="t">{{ t }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="fw" *ngIf="formData.type === 'MathVariable'">
+            <mat-label>Accounting Amount</mat-label>
+            <input matInput [(ngModel)]="formData.accountingAmount" placeholder="e.g. LoanAccount241121CreditMV" [disabled]="formData.lockStep3">
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="fw" *ngIf="formData.type === 'By Fund'">
+            <mat-label>Fund Type</mat-label>
+            <mat-select [(ngModel)]="formData.fundType" [disabled]="formData.lockStep3">
+              <mat-option *ngFor="let ft of fundTypeOptions" [value]="ft.code">{{ ft.code }} - {{ ft.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="fw">
+            <mat-label>Effective From</mat-label>
+            <input matInput [matDatepicker]="dp1" [(ngModel)]="formData.effectiveFromDate" [disabled]="formData.lockStep3">
+            <mat-datepicker-toggle matSuffix [for]="dp1" [disabled]="formData.lockStep3"></mat-datepicker-toggle>
+            <mat-datepicker #dp1></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="fw">
+            <mat-label>Effective To</mat-label>
+            <input matInput [matDatepicker]="dp2" [(ngModel)]="formData.effectiveToDate" [disabled]="formData.lockStep3">
+            <mat-datepicker-toggle matSuffix [for]="dp2" [disabled]="formData.lockStep3"></mat-datepicker-toggle>
+            <mat-datepicker #dp2></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="fw span2">
+            <mat-label>Entry Description</mat-label>
+            <input matInput [(ngModel)]="formData.entryDescription" placeholder="e.g. Premium Tax Credit Entry" [disabled]="formData.lockStep3">
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="fw span2" *ngIf="formData.type === 'Disbursement'">
+            <mat-label>Original Disbursement Status</mat-label>
+            <mat-select [(ngModel)]="formData.originalDisbursementStatus" [disabled]="formData.lockStep3">
+              <mat-option *ngFor="let ds of disbursementStatusOptions" [value]="ds.code">{{ ds.code }} - {{ ds.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+        <div class="switches-row">
+          <mat-checkbox [(ngModel)]="formData.gainLoss" color="primary" [disabled]="formData.lockStep3">Gain / Loss</mat-checkbox>
+          <mat-checkbox [(ngModel)]="formData.flipOnNegative" color="primary" [disabled]="formData.lockStep3">Flip On Negative</mat-checkbox>
+          <mat-checkbox [(ngModel)]="formData.doReversalAccounting" color="primary" [disabled]="formData.lockStep3">Do Reversal Accounting</mat-checkbox>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div *ngIf="currentStepId === 4" class="step-pane animate-fade-in">
+        <div class="pane-head">
+          <div class="ph-icon"><mat-icon>rule</mat-icon></div>
+          <div><h3>Accounting Execution Criteria</h3><p>Define conditions that trigger this accounting entry</p></div>
+        </div>
+        <div class="criteria-wrap">
+          <mat-checkbox [(ngModel)]="formData.writeAccounting" color="primary">
+            <div class="tc-text">
+              <strong>Write Accounting</strong>
+              <span>Check to enable writing accounting for this entry</span>
+            </div>
+          </mat-checkbox>
+        </div>
+      </div>
+
+      <!-- Step 5 -->
+      <div *ngIf="currentStepId === 5" class="step-pane animate-fade-in">
+        <div class="pane-head">
+          <div class="ph-icon"><mat-icon>output</mat-icon></div>
+          <div><h3>Section-Grouped Result Definitions</h3><p>Select one item per section for mutual exclusivity</p></div>
+        </div>
+        <div class="results-grid">
+          <div class="res-card"><div class="rc-title"><mat-icon>business</mat-icon> Branch Selection</div>
+            <mat-radio-group [(ngModel)]="formData.resultSelections.branchSection" class="rs">
+              <mat-radio-button value="Branch">Branch</mat-radio-button>
+              <mat-radio-button value="AgentBranchID">AgentBranchID</mat-radio-button>
+              <mat-radio-button value="DefaultBranchID">DefaultBranchID</mat-radio-button>
+              <mat-radio-button value="PremiumCollectionBranchID">PremiumCollectionBranchID</mat-radio-button>
+            </mat-radio-group>
+          </div>
+          <div class="res-card"><div class="rc-title"><mat-icon>account_balance</mat-icon> Department Selection</div>
+            <mat-radio-group [(ngModel)]="formData.resultSelections.departmentSection" class="rs">
+              <mat-radio-button value="Department">Department</mat-radio-button>
+              <mat-radio-button value="StampDutyDepartment">StampDutyDepartment</mat-radio-button>
+              <mat-radio-button value="StampDutyCreditDepartment">StampDutyCreditDepartment</mat-radio-button>
+              <mat-radio-button value="PHCFDepartment">PHCFDepartment</mat-radio-button>
+              <mat-radio-button value="PHCFCreditDepartment">PHCFCreditDepartment</mat-radio-button>
+              <mat-radio-button value="PremiumCollectionDepartmentID">PremiumCollectionDepartmentID</mat-radio-button>
+            </mat-radio-group>
+          </div>
+          <div class="res-card"><div class="rc-title"><mat-icon>inventory_2</mat-icon> Product Selection</div>
+            <mat-radio-group [(ngModel)]="formData.resultSelections.productSection" class="rs">
+              <mat-radio-button value="Product">Product</mat-radio-button>
+              <mat-radio-button value="PremiumCollectionProduct">PremiumCollectionProduct</mat-radio-button>
+            </mat-radio-group>
+          </div>
+          <div class="res-card"><div class="rc-title"><mat-icon>alt_route</mat-icon> Channel Selection</div>
+            <mat-radio-group [(ngModel)]="formData.resultSelections.channelSection" class="rs">
+              <mat-radio-button value="Channel">Channel</mat-radio-button>
+              <mat-radio-button value="PremiumCollectionChannelID">PremiumCollectionChannelID</mat-radio-button>
+            </mat-radio-group>
+          </div>
+          <div class="res-card"><div class="rc-title"><mat-icon>category</mat-icon> LOB Selection</div>
+            <mat-radio-group [(ngModel)]="formData.resultSelections.lobSection" class="rs">
+              <mat-radio-button value="LOB">LOB</mat-radio-button>
+              <mat-radio-button value="PremiumCollectionLOBID">PremiumCollectionLOBID</mat-radio-button>
+            </mat-radio-group>
+          </div>
+          <div class="res-card"><div class="rc-title"><mat-icon>flag</mat-icon> General Selection</div>
+            <div class="rs">
+              <mat-checkbox [(ngModel)]="formData.resultSelections.company" color="primary">Company</mat-checkbox>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Wizard Footer -->
+    <div class="ws-footer">
+      <button mat-button class="wf-prev" (click)="prevStep()" [disabled]="isFirstStep">
+        <mat-icon>chevron_left</mat-icon> Previous
+      </button>
+      <div class="wf-right">
+        <button mat-stroked-button (click)="backToHierarchy()">Cancel</button>
+        <button *ngIf="currentStepId === 1 || currentStepId === 4" mat-stroked-button color="primary" (click)="saveConfiguration()" [disabled]="isLoading" style="margin-right: 8px;">
+          <mat-icon>save</mat-icon> Save & Exit
+        </button>
+        <button *ngIf="!isLastStep" mat-raised-button color="primary" (click)="nextStep()">
+          Next <mat-icon>chevron_right</mat-icon>
+        </button>
+        <button *ngIf="isLastStep" mat-raised-button color="accent" (click)="saveConfiguration()" [disabled]="isLoading">
+          <mat-icon>check_circle</mat-icon>
+          {{ isNewEntityMode ? 'Save Entity' : 'Save Configuration' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

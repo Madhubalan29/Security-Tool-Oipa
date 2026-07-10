@@ -9,6 +9,7 @@ import { SecurityConfigComponent } from './components/security-config/security-c
 import { RateLoaderComponent } from './components/rate-loader/rate-loader.component';
 import { UserListComponent } from './components/user-list/user-list.component';
 import { UserFormComponent } from './components/user-form/user-form.component';
+import { ChartOfAccountsComponent } from './components/chart-of-accounts/chart-of-accounts.component';
 
 const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -21,6 +22,7 @@ const routes: Routes = [
   { path: 'security-group/view', component: ModifyGroupComponent },
   { path: 'security-group/configure', component: SecurityConfigComponent },
   { path: 'rate-loader', component: RateLoaderComponent },
+  { path: 'chart-of-accounts', component: ChartOfAccountsComponent },
   { path: 'users', component: UserListComponent },
   { path: 'users/create', component: UserFormComponent },
   { path: 'users/modify/:loginName', component: UserFormComponent },
